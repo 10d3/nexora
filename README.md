@@ -51,8 +51,8 @@ Nexora is built with modern technologies:
 
 - **Frontend**
 
-  - Next.js 13+ (App Router)
-  - React 18
+  - Next.js 15+ (App Router)
+  - React 19
   - Tailwind CSS
   - Radix UI Components
 
@@ -64,7 +64,7 @@ Nexora is built with modern technologies:
 
 - **Authentication**
 
-  - NextAuth.js
+  - Authjs
   - JWT with secure sessions
 
 - **Infrastructure**
@@ -83,7 +83,7 @@ Nexora is built with modern technologies:
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/nexora.git
+   git clone https://github.com/10d3/nexora.git
    cd nexora
    ```
 2. Install dependencies:
