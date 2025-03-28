@@ -17,6 +17,7 @@ import {
 import { ModeToggle } from "@/components/shared/toggle-theme";
 import { getNavLinks } from "@/lib/constant/nav-links";
 import { BusinessType } from "@prisma/client";
+import { ThemeColorToggle } from "../shared/color-toggle";
 
 interface TenantData {
   id: string;
@@ -123,6 +124,7 @@ export function AppSidebar({
         <NavMain items={navItems} />
       </SidebarContent>
       <SidebarFooter>
+        <ThemeColorToggle />
         <div className="flex items-center justify-between gap-2">
           <ModeToggle />
           <NavUser
