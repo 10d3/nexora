@@ -1,4 +1,4 @@
-"use client"
+"use client";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -11,7 +11,7 @@ import {
 import { usePathname } from "next/navigation";
 import React from "react";
 
-export function BreadcrumbNav() {
+export function BreadcrumbNav({activeTenat}: {activeTenat: string}) {
   const pathname = usePathname();
   const segments = pathname.split("/").filter(Boolean);
 
@@ -27,12 +27,12 @@ export function BreadcrumbNav() {
     <Breadcrumb>
       <BreadcrumbList>
         <BreadcrumbItem>
-          <BreadcrumbLink href="/pos">POS</BreadcrumbLink>
+          <BreadcrumbLink href={`/${activeTenat}`}>Dashboard</BreadcrumbLink>
         </BreadcrumbItem>
 
         {segments.slice(1).map((segment, index) => {
           const isLast = index === segments.slice(1).length - 1;
-          const href = `/pos/${segments.slice(1, index + 2).join("/")}`;
+          const href = `/${activeTenat}/${segments.slice(1, index + 2).join("/")}`;
 
           return (
             <React.Fragment key={segment}>

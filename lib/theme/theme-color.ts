@@ -1,26 +1,3 @@
-/**
- | "zinc"
-  | "gray"
-  | "stone"
-  | "red"
-  | "orange"
-  | "amber"
-  | "yellow"
-  | "lime"
-  | "green"
-  | "emerald"
-  | "teal"
-  | "cyan"
-  | "sky"
-  | "blue"
-  | "indigo"
-  | "violet"
-  | "purple"
-  | "fuchsia"
-  | "pink"
-  | "rose";
- */
-
 import type { ThemeColors } from "@/types/theme-types";
 
 type ThemeValues = {
@@ -56,11 +33,11 @@ export const themes: ThemeConfig = {
       border: "oklch(0.922 0 0)",
       input: "oklch(0.922 0 0)",
       ring: "oklch(0.708 0 0)",
-      "chart-1": "oklch(0.646 0.222 41.116)",
-      "chart-2": "oklch(0.6 0.118 184.704)",
-      "chart-3": "oklch(0.398 0.07 227.392)",
-      "chart-4": "oklch(0.828 0.189 84.429)",
-      "chart-5": "oklch(0.769 0.188 70.08)",
+      "chart-1": "41 22% 65%",
+      "chart-2": "185 12% 60%",
+      "chart-3": "227 7% 40%",
+      "chart-4": "84 19% 83%",
+      "chart-5": "70 19% 77%",
     },
     dark: {
       background: "oklch(0.145 0 0)",
@@ -82,11 +59,11 @@ export const themes: ThemeConfig = {
       border: "oklch(1 0 0 / 10%)",
       input: "oklch(1 0 0 / 15%)",
       ring: "oklch(0.556 0 0)",
-      "chart-1": "oklch(0.488 0.243 264.376)",
-      "chart-2": "oklch(0.696 0.17 162.48)",
-      "chart-3": "oklch(0.769 0.188 70.08)",
-      "chart-4": "oklch(0.627 0.265 303.9)",
-      "chart-5": "oklch(0.645 0.246 16.439)",
+      "chart-1": "264 24% 49%",
+      "chart-2": "162 17% 70%",
+      "chart-3": "70 19% 77%",
+      "chart-4": "304 27% 63%",
+      "chart-5": "16 25% 65%",
     },
   },
   palette: {
@@ -110,11 +87,11 @@ export const themes: ThemeConfig = {
       border: "oklch(0.922 0 0)",
       input: "oklch(0.922 0 0)",
       ring: "oklch(0.708 0 0)",
-      "chart-1": "oklch(0.646 0.222 12)",
-      "chart-2": "oklch(0.6 0.118 173)",
-      "chart-3": "oklch(0.398 0.07 197)",
-      "chart-4": "oklch(0.828 0.189 43)",
-      "chart-5": "oklch(0.769 0.188 27)",
+     "chart-1": "12 22% 65%",
+      "chart-2": "173 12% 60%",
+      "chart-3": "197 7% 40%",
+      "chart-4": "43 19% 83%",
+      "chart-5": "27 19% 77%",
     },
     dark: {
       background: "oklch(0.145 0 0)",
@@ -136,11 +113,11 @@ export const themes: ThemeConfig = {
       border: "oklch(1 0 0 / 10%)",
       input: "oklch(1 0 0 / 15%)",
       ring: "oklch(0.556 0 0)",
-      "chart-1": "oklch(0.488 0.243 220)",
-      "chart-2": "oklch(0.696 0.17 160)",
-      "chart-3": "oklch(0.769 0.188 30)",
-      "chart-4": "oklch(0.627 0.265 280)",
-      "chart-5": "oklch(0.645 0.246 340)",
+      "chart-1": "220 24% 49%",
+      "chart-2": "160 17% 70%",
+      "chart-3": "30 19% 77%",
+      "chart-4": "280 27% 63%",
+      "chart-5": "340 25% 65%",
     },
   },
   midnight: {
@@ -164,11 +141,11 @@ export const themes: ThemeConfig = {
       border: "oklch(0.2 0 240)",
       input: "oklch(0.2 0 240)",
       ring: "oklch(0.9 0 240)",
-      "chart-1": "oklch(0.9 0.02 359)",
-      "chart-2": "oklch(0.74 0.01 240)",
-      "chart-3": "oklch(0.58 0.01 240)",
-      "chart-4": "oklch(0.42 0.01 240)",
-      "chart-5": "oklch(0.26 0.02 240)",
+      "chart-1": "359 2% 90%",
+      "chart-2": "240 1% 74%",
+      "chart-3": "240 1% 58%",
+      "chart-4": "240 1% 42%",
+      "chart-5": "240 2% 26%",
     },
     dark: {
       background: "oklch(0.06 0 240)",
@@ -190,11 +167,11 @@ export const themes: ThemeConfig = {
       border: "oklch(0.2 0 240)",
       input: "oklch(0.2 0 240)",
       ring: "oklch(0.9 0 240)",
-      "chart-1": "oklch(0.9 0.02 359)",
-      "chart-2": "oklch(0.74 0.01 240)",
-      "chart-3": "oklch(0.58 0.01 240)",
-      "chart-4": "oklch(0.42 0.01 240)",
-      "chart-5": "oklch(0.26 0.02 240)",
+      "chart-1": "359 2% 90%",
+      "chart-2": "240 1% 74%",
+      "chart-3": "240 1% 58%",
+      "chart-4": "240 1% 42%",
+      "chart-5": "240 2% 26%",
     },
   },
   daylight: {
@@ -218,11 +195,11 @@ export const themes: ThemeConfig = {
       border: "oklch(0.6 0.1 36)",
       input: "oklch(0.6 0.1 36)",
       ring: "oklch(0.3 0.1 36)",
-      "chart-1": "oklch(0.28 0.05 25)",
-      "chart-2": "oklch(0.34 0.05 26)",
-      "chart-3": "oklch(0.4 0.05 28)",
-      "chart-4": "oklch(0.48 0.05 31)",
-      "chart-5": "oklch(0.53 0.05 35)",
+      "chart-1": "25 5% 28%",
+      "chart-2": "26 5% 34%",
+      "chart-3": "28 5% 40%",
+      "chart-4": "31 5% 48%",
+      "chart-5": "35 5% 53%",
     },
     dark: {
       background: "oklch(0.88 0.05 36)",
@@ -244,11 +221,11 @@ export const themes: ThemeConfig = {
       border: "oklch(0.6 0.1 36)",
       input: "oklch(0.6 0.1 36)",
       ring: "oklch(0.3 0.1 36)",
-      "chart-1": "oklch(0.28 0.05 25)",
-      "chart-2": "oklch(0.34 0.05 26)",
-      "chart-3": "oklch(0.4 0.05 28)",
-      "chart-4": "oklch(0.48 0.05 31)",
-      "chart-5": "oklch(0.53 0.05 35)",
+      "chart-1": "25 5% 28%",
+      "chart-2": "26 5% 34%",
+      "chart-3": "28 5% 40%",
+      "chart-4": "31 5% 48%",
+      "chart-5": "35 5% 53%",
     },
   },
   emerald: {
@@ -272,11 +249,11 @@ export const themes: ThemeConfig = {
       border: "oklch(0.9 0 0)",
       input: "oklch(0.9 0 0)",
       ring: "oklch(0.28 0.2 142)",
-      "chart-1": "oklch(0.2 0.15 139)",
-      "chart-2": "oklch(0.44 0.15 140)",
-      "chart-3": "oklch(0.28 0.2 142)",
-      "chart-4": "oklch(0.15 0.1 137)",
-      "chart-5": "oklch(0.09 0.05 141)",
+      "chart-1": "139 15% 20%",
+      "chart-2": "140 15% 44%",
+      "chart-3": "142 20% 28%",
+      "chart-4": "137 10% 15%",
+      "chart-5": "141 5% 9%",
     },
     dark: {
       background: "oklch(0.145 0 0)",
@@ -298,11 +275,11 @@ export const themes: ThemeConfig = {
       border: "oklch(0.159 0 0)",
       input: "oklch(0.159 0 0)",
       ring: "oklch(0.28 0.2 142)",
-      "chart-1": "oklch(0.28 0.2 142)",
-      "chart-2": "oklch(0.2 0.15 139)",
-      "chart-3": "oklch(0.24 0.15 140)",
-      "chart-4": "oklch(0.15 0.1 137)",
-      "chart-5": "oklch(0.09 0.05 141)",
+      "chart-1": "142 88% 28%",
+      "chart-2": "139 15% 20%",
+      "chart-3": "140 15% 24%",
+      "chart-4": "137 10% 15%",
+      "chart-5": "141 5% 9%",
     },
   },
   sapphire: {
@@ -326,11 +303,11 @@ export const themes: ThemeConfig = {
       border: "oklch(0.914 0.05 214.3)",
       input: "oklch(0.914 0.05 214.3)",
       ring: "oklch(0.533 0.2 221.2)",
-      "chart-1": "oklch(0.533 0.2 221.2)",
-      "chart-2": "oklch(0.68 0.2 212)",
-      "chart-3": "oklch(0.6 0.2 216)",
-      "chart-4": "oklch(0.78 0.2 210)",
-      "chart-5": "oklch(0.87 0.2 212)",
+     "chart-1": "221 20% 53%",
+      "chart-2": "212 20% 68%",
+      "chart-3": "216 20% 60%",
+      "chart-4": "210 20% 78%",
+      "chart-5": "212 20% 87%",
     },
     dark: {
       background: "oklch(0.145 0 0)",
@@ -352,11 +329,11 @@ export const themes: ThemeConfig = {
       border: "oklch(0.159 0 0)",
       input: "oklch(0.159 0 0)",
       ring: "oklch(0.533 0.2 221.2)",
-      "chart-1": "oklch(0.533 0.2 221.2)",
-      "chart-2": "oklch(0.68 0.2 212)",
-      "chart-3": "oklch(0.6 0.2 216)",
-      "chart-4": "oklch(0.78 0.2 210)",
-      "chart-5": "oklch(0.87 0.2 212)",
+      "chart-1": "221 20% 53%",
+      "chart-2": "212 20% 68%",
+      "chart-3": "216 20% 60%",
+      "chart-4": "210 20% 78%",
+      "chart-5": "212 20% 87%",
     },
   },
   ruby: {
@@ -380,11 +357,11 @@ export const themes: ThemeConfig = {
       border: "oklch(0.9 0 0)",
       input: "oklch(0.9 0 0)",
       ring: "oklch(0.498 0.2 346.8)",
-      "chart-1": "oklch(0.5 0.2 347)",
-      "chart-2": "oklch(0.91 0.2 352)",
-      "chart-3": "oklch(0.72 0.2 350)",
-      "chart-4": "oklch(0.82 0.2 351)",
-      "chart-5": "oklch(0.62 0.2 349)",
+      "chart-1": "347 20% 50%",
+      "chart-2": "352 20% 91%",
+      "chart-3": "350 20% 72%",
+      "chart-4": "351 20% 82%",
+      "chart-5": "349 20% 62%",
     },
     dark: {
       background: "oklch(0.145 0 0)",
@@ -406,11 +383,11 @@ export const themes: ThemeConfig = {
       border: "oklch(0.159 0 0)",
       input: "oklch(0.159 0 0)",
       ring: "oklch(0.533 0.2 221.2)",
-      "chart-1": "oklch(0.5 0.2 347)",
-      "chart-2": "oklch(0.62 0.2 349)",
-      "chart-3": "oklch(0.72 0.2 350)",
-      "chart-4": "oklch(0.82 0.2 351)",
-      "chart-5": "oklch(0.91 0.2 352)",
+      "chart-1": "347 20% 50%",
+      "chart-2": "349 20% 62%",
+      "chart-3": "350 20% 72%",
+      "chart-4": "351 20% 82%",
+      "chart-5": "352 20% 91%",
     },
   },
 };

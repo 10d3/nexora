@@ -37,6 +37,7 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   };
   tenantData?: TenantData[];
   activeTenantId?: string;
+  activeTenantSlug: string;
 }
 
 export function AppSidebar({
@@ -44,10 +45,32 @@ export function AppSidebar({
   userData,
   tenantData = [],
   activeTenantId,
+  activeTenantSlug,
   ...props
 }: AppSidebarProps) {
   // Get navigation links based on business type
   const navItems = getNavLinks(businessType as BusinessType);
+
+  const navItemsWithTenantSlug = navItems.map((item) => {
+    // Create a new URL with tenant slug prefix
+    const newUrl = item.url.startsWith("/")
+      ? `/${activeTenantSlug}${item.url}`
+      : `/${activeTenantSlug}/${item.url}`;
+
+    // Handle submenu items if they exist
+    const updatedSubItems = item.items?.map((subItem) => ({
+      ...subItem,
+      url: subItem.url.startsWith("/")
+        ? `/${activeTenantSlug}${subItem.url}`
+        : `/${activeTenantSlug}/${subItem.url}`,
+    }));
+
+    return {
+      ...item,
+      url: newUrl,
+      items: updatedSubItems,
+    };
+  });
 
   // Separate owned and member tenants
   const ownedTenants = tenantData.filter(
@@ -121,7 +144,7 @@ export function AppSidebar({
         />
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={navItems} />
+        <NavMain activeTenantSlug={activeTenantSlug} items={navItemsWithTenantSlug} />
       </SidebarContent>
       <SidebarFooter>
         <ThemeColorToggle />

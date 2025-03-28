@@ -50,7 +50,7 @@ export type NavItem = {
 const commonNavLinks: NavItem[] = [
   {
     title: "Dashboard",
-    url: "/dashboard",
+    url: "/",
     icon: Home,
     hasSubmenu: false,
   },

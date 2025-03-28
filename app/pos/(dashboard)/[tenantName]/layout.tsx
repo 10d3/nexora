@@ -20,7 +20,7 @@ export default async function PosLayout({
 }) {
   try {
     const paramsName = await params;
-    const tenantName = paramsName.tenantName
+    const tenantName = paramsName.tenantName;
     console.log("params is : ", tenantName);
     // Get the current user session
     console.log("Checking session in POS layout");
@@ -87,19 +87,17 @@ export default async function PosLayout({
     }
 
     // Get the active tenant from the user's session
-    let activeTenant = allTenants.find(
-      (tenant) => tenant.slug === tenantName,
-    );
+    let activeTenant = allTenants.find((tenant) => tenant.slug === tenantName);
 
     // If no active tenant is set, use the first one
     if (!activeTenant) {
       activeTenant = allTenants[0];
 
       // Update the user's active tenant in the database
-      await prisma.user.update({
-        where: { id: session.user.id },
-        data: { tenantId: activeTenant.id },
-      });
+      // await prisma.user.update({
+      //   where: { id: session.user.id },
+      //   data: { tenantId: activeTenant.id },
+      // });
     }
 
     // Prepare data for the sidebar
@@ -116,7 +114,7 @@ export default async function PosLayout({
       businessType: tenant.businessType,
       logo: tenant.settings?.logoUrl || null,
       role: tenant.role,
-      slug: tenant.slug
+      slug: tenant.slug,
     }));
 
     return (
@@ -133,6 +131,7 @@ export default async function PosLayout({
               logo: tenant.logo ?? undefined,
             }))}
             activeTenantId={activeTenant.id}
+            activeTenantSlug={activeTenant.slug}
           />
         </nav>
         <SidebarInset>
@@ -141,7 +140,7 @@ export default async function PosLayout({
               <div className="flex items-center">
                 <SidebarTrigger className="-ml-1" />
                 <Separator orientation="vertical" className="mr-2 h-4" />
-                <BreadcrumbNav />
+                <BreadcrumbNav activeTenat={activeTenant.slug} />
               </div>
             </header>
             <main>{children}</main>

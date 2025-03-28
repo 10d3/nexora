@@ -1,7 +1,10 @@
-import React from 'react'
+import { PieChartComp } from "@/components/ui/pie-chart";
+import React from "react";
 
 export default function page() {
   return (
-    <div>La vida loca tele</div>
-  )
+    <div>
+      <PieChartComp />
+    </div>
+  );
 }
