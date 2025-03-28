@@ -1,0 +1,1146 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["prismaSchemaFolder"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Business Type Enum
+enum BusinessType {
+  RETAIL
+  RESTAURANT
+  HOTEL
+  SALON
+  SERVICE
+  OTHER
+  QUINQUAILLERIE
+  PHARMACIE
+  SUPERMARKET
+  DEPOT
+  CYBERCAFE
+  BOUTIQUE
+  BAKERY
+  BAR
+  TRANSPORTATION
+  CONSTRUCTION
+  AGRICULTURE
+  ELECTRONICS
+  EDUCATION
+  EVENT_PLANNING
+  TEXTILE
+  SECURITY
+  AUTOMOTIVE
+}
+
+// Multi-tenant models
+model Site {
+  id           String   @id @default(cuid())
+  name         String
+  subdomain    String?  @unique
+  customDomain String?  @unique
+  tenantId     String   @unique
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Tenant {
+  id             String       @id @default(cuid())
+  name           String
+  slug           String       @unique
+  businessType   BusinessType @default(RETAIL)
+  description    String?
+  subscriptionId String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deletedAt      DateTime?
+
+  // User relationships
+  users       User[]       @relation("UserTenants")
+  activeUsers User[]       @relation("ActiveTenant")
+  members     Member[]
+  invitations Invitation[]
+
+  // Product relationships
+  products          Product[]
+  categories        Category[]
+  inventory         Inventory[]
+  suppliers         Supplier[]
+  supplierProducts  SupplierProduct[]
+  departments       Department[]
+  promotions        Promotion[]
+  promotionProducts PromotionProduct[]
+
+  // Order relationships
+  orders Order[]
+
+  // Restaurant relationships
+  tables       Table[]
+  menuItems    MenuItem[]
+  reservations Reservation[]
+
+  // Hotel relationships
+  rooms    Room[]
+  guests   Guest[]
+  bookings Booking[]
+
+  // Service relationships
+  appointments      Appointment[]
+  staff             Staff[]
+  staffServices     StaffService[]
+  staffAppointments StaffAppointment[]
+
+  // Pharmacy relationships
+  medications       Medication[]
+  prescriptions     Prescription[]
+  prescriptionItems PrescriptionItem[]
+
+  // Credit system relationships
+  creditAccounts     CreditAccount[]
+  creditTransactions CreditTransaction[]
+
+  // Audit and inventory tracking
+  auditLogs          AuditLog[]
+  inventoryMovements InventoryMovement[]
+  refunds            Refund[]
+
+  // Settings
+  settings Settings?
+
+  // Site relationship
+  site Site?
+
+  @@index([businessType])
+}
+
+model Member {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      String
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([userId])
+  @@map("member")
+}
+
+model Invitation {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  email     String
+  role      String?
+  status    String
+  expiresAt DateTime
+  inviterId String
+  user      User     @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([inviterId])
+  @@index([email])
+  @@map("invitation")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  emailVerified DateTime?
+  password      String
+  image         String?
+  role          Role      @default(ADMIN)
+  tenantId      String?
+  tenant        Tenant?   @relation("ActiveTenant", fields: [tenantId], references: [id], onDelete: SetNull) // Add relation name
+  tenants       Tenant[]  @relation("UserTenants")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  // Business relationships
+  orders       Order[]
+  appointments Appointment[]
+  members      Member[]
+  invitations  Invitation[]
+
+  // Credit relationship
+  creditAccount CreditAccount?
+
+  // Audit tracking
+  createdAuditLogs AuditLog[] @relation("CreatedBy")
+  updatedAuditLogs AuditLog[] @relation("UpdatedBy")
+
+  // Authentication relationships
+  accounts       Account[]
+  sessions       Session[]
+  authenticators Authenticator[]
+
+  // Subscription relationship
+  subscriptions UserSubscription[]
+
+  @@index([tenantId])
+  @@index([email])
+  @@index([role])
+}
+
+model SubscriptionPlan {
+  id                String             @id @default(cuid())
+  name              String
+  description       String?
+  price             Float
+  billingCycle      BillingCycle       @default(MONTHLY)
+  maxTenants        Int                @default(1)
+  maxUsers          Int                @default(5)
+  maxProducts       Int? // null means unlimited
+  maxOrders         Int? // null means unlimited
+  features          Json? // Store additional features as JSON
+  isActive          Boolean            @default(true)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  userSubscriptions UserSubscription[]
+
+  @@index([isActive])
+}
+
+model UserSubscription {
+  id               String             @id @default(cuid())
+  userId           String
+  user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId           String
+  plan             SubscriptionPlan   @relation(fields: [planId], references: [id])
+  startDate        DateTime
+  endDate          DateTime?
+  status           SubscriptionStatus @default(ACTIVE)
+  autoRenew        Boolean            @default(true)
+  paymentMethod    String?
+  lastPaymentDate  DateTime?
+  nextPaymentDate  DateTime?
+  cancellationDate DateTime?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  @@index([userId])
+  @@index([planId])
+  @@index([status])
+}
+
+model Settings {
+  id                String   @id @default(cuid())
+  theme             String   @default("light")
+  currency          String   @default("USD")
+  taxRate           Float    @default(0)
+  logoUrl           String?
+  storeName         String?
+  address           String?
+  phoneNumber       String?
+  email             String?
+  businessHours     Json? // Store opening/closing hours
+  tableManagement   Boolean? @default(false) // For restaurants
+  roomManagement    Boolean? @default(false) // For hotels
+  appointmentSystem Boolean? @default(false) // For services, salons
+  tenantId          String   @unique
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([tenantId])
+}
+
+model Product {
+  id           String      @id @default(cuid())
+  name         String
+  description  String?
+  price        Float
+  stockQty     Int         @default(0)
+  sku          String?
+  barcode      String?     @unique
+  image        String?
+  isService    Boolean     @default(false) // For services, not physical products
+  duration     Int? // For services, duration in minutes
+  categoryId   String?
+  category     Category?   @relation(fields: [categoryId], references: [id])
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+  tenantId     String
+  tenant       Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  deletedAt    DateTime?
+  createdBy    String?
+  updatedBy    String?
+
+  // Related entities
+  orderItems         OrderItem[]
+  inventory          Inventory[]
+  supplierProducts   SupplierProduct[]
+  staffServices      StaffService[]
+  medication         Medication?
+  promotionProducts  PromotionProduct[]
+  inventoryMovements InventoryMovement[]
+
+  @@unique([sku, tenantId]) // Ensure SKU is unique per tenant
+  @@index([tenantId])
+  @@index([categoryId])
+  @@index([departmentId])
+  @@index([name])
+  @@index([isService])
+}
+
+model Category {
+  id          String     @id @default(cuid())
+  name        String
+  description String?
+  tenantId    String
+  tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  products    Product[]
+  menuItems   MenuItem[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([tenantId])
+  @@index([name])
+}
+
+model Order {
+  id                String             @id @default(cuid())
+  orderNumber       String             @unique
+  status            OrderStatus        @default(PENDING)
+  total             Float
+  tax               Float              @default(0)
+  discount          Float              @default(0)
+  paymentType       PaymentType        @default(CASH)
+  orderType         OrderType          @default(STANDARD) // Different order types based on business
+  tableId           String? // For restaurants
+  table             Table?             @relation(fields: [tableId], references: [id])
+  roomId            String? // For hotels
+  room              Room?              @relation(fields: [roomId], references: [id])
+  userId            String
+  user              User               @relation(fields: [userId], references: [id])
+  tenantId          String
+  tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  orderItems        OrderItem[]
+  creditTransaction CreditTransaction?
+  refunds           Refund[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  deletedAt         DateTime?
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([tableId])
+  @@index([roomId])
+  @@index([tenantId, createdAt]) // Index for sorting by createdAt
+  @@index([status])
+  @@index([orderNumber])
+}
+
+model OrderItem {
+  id        String   @id @default(cuid())
+  quantity  Int
+  price     Float
+  notes     String?
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([productId])
+  @@index([orderId])
+}
+
+// Credit system models
+model CreditAccount {
+  id              String              @id @default(cuid())
+  userId          String              @unique
+  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  creditLimit     Float               @default(0)
+  currentBalance  Float               @default(0)
+  availableCredit Float               @default(0)
+  status          CreditStatus        @default(ACTIVE)
+  transactions    CreditTransaction[]
+  tenantId        String
+  tenant          Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@index([userId])
+  @@index([tenantId])
+  @@index([status])
+}
+
+model CreditTransaction {
+  id              String            @id @default(cuid())
+  amount          Float
+  type            TransactionType
+  description     String?
+  orderId         String?           @unique
+  order           Order?            @relation(fields: [orderId], references: [id])
+  creditAccountId String
+  creditAccount   CreditAccount     @relation(fields: [creditAccountId], references: [id], onDelete: Cascade)
+  status          TransactionStatus @default(PENDING)
+  dueDate         DateTime?
+  tenantId        String
+  tenant          Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([creditAccountId])
+  @@index([orderId])
+  @@index([tenantId])
+  @@index([status])
+  @@index([type])
+}
+
+// Restaurant and Hotel specific models
+model Table {
+  id           String        @id @default(cuid())
+  number       String
+  capacity     Int
+  status       TableStatus   @default(AVAILABLE)
+  tenantId     String
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  orders       Order[]
+  reservations Reservation[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@unique([number, tenantId]) // Table numbers should be unique per tenant
+  @@index([tenantId])
+  @@index([status])
+}
+
+model Room {
+  id        String     @id @default(cuid())
+  number    String
+  type      String // e.g., "Standard", "Deluxe", "Suite"
+  capacity  Int
+  rate      Float // Price per night
+  status    RoomStatus @default(AVAILABLE)
+  tenantId  String
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  orders    Order[]
+  bookings  Booking[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@unique([number, tenantId]) // Room numbers should be unique per tenant
+  @@index([tenantId])
+  @@index([status])
+}
+
+// Service industry specific models (Salon, Spa, etc.)
+model Appointment {
+  id                String             @id @default(cuid())
+  startTime         DateTime
+  endTime           DateTime
+  status            AppointmentStatus  @default(SCHEDULED)
+  customerId        String
+  user              User               @relation(fields: [customerId], references: [id])
+  serviceId         String? // Can be linked to a Product with isService=true
+  notes             String?
+  tenantId          String
+  tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  staffAppointments StaffAppointment[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@index([tenantId])
+  @@index([customerId])
+  @@index([status])
+  @@index([startTime, endTime])
+}
+
+// Retail specific models
+model Inventory {
+  id          String    @id @default(cuid())
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id])
+  location    String?
+  batchNumber String?
+  expiryDate  DateTime?
+  costPrice   Float?
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([productId])
+  @@index([tenantId])
+  @@index([expiryDate])
+}
+
+model InventoryMovement {
+  id        String                @id @default(cuid())
+  productId String
+  product   Product               @relation(fields: [productId], references: [id])
+  quantity  Int
+  type      InventoryMovementType
+  reference String? // Order ID, adjustment ID, etc.
+  notes     String?
+  tenantId  String
+  tenant    Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt DateTime              @default(now())
+  createdBy String?
+  updatedAt DateTime              @updatedAt
+
+  @@index([productId])
+  @@index([tenantId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+model Supplier {
+  id          String            @id @default(cuid())
+  name        String
+  contactName String?
+  email       String?
+  phone       String?
+  address     String?
+  products    SupplierProduct[]
+  tenantId    String
+  tenant      Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([tenantId])
+  @@index([name])
+}
+
+model SupplierProduct {
+  id           String   @id @default(cuid())
+  supplierId   String
+  supplier     Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  productId    String
+  product      Product  @relation(fields: [productId], references: [id])
+  costPrice    Float
+  leadTime     Int? // In days
+  minimumOrder Int?
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([supplierId])
+  @@index([productId])
+  @@index([tenantId])
+}
+
+// Restaurant specific models
+model MenuItem {
+  id              String    @id @default(cuid())
+  name            String
+  description     String?
+  price           Float
+  image           String?
+  ingredients     String?
+  preparationTime Int? // In minutes
+  isAvailable     Boolean   @default(true)
+  categoryId      String?
+  category        Category? @relation(fields: [categoryId], references: [id])
+  tenantId        String
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([categoryId])
+  @@index([tenantId])
+  @@index([name])
+  @@index([isAvailable])
+}
+
+model Reservation {
+  id              String            @id @default(cuid())
+  customerName    String
+  customerPhone   String?
+  customerEmail   String?
+  partySize       Int
+  reservationTime DateTime
+  specialRequests String?
+  status          ReservationStatus @default(CONFIRMED)
+  tableId         String?
+  table           Table?            @relation(fields: [tableId], references: [id])
+  tenantId        String
+  tenant          Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([tableId])
+  @@index([tenantId])
+  @@index([status])
+  @@index([reservationTime])
+}
+
+// Hotel specific models
+model Guest {
+  id        String    @id @default(cuid())
+  firstName String
+  lastName  String
+  email     String?
+  phone     String?
+  address   String?
+  idType    String? // Passport, ID card, etc.
+  idNumber  String?
+  bookings  Booking[]
+  tenantId  String
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([tenantId])
+  @@index([email])
+  @@index([phone])
+  @@index([lastName, firstName])
+}
+
+model Booking {
+  id          String        @id @default(cuid())
+  checkIn     DateTime
+  checkOut    DateTime
+  adults      Int           @default(1)
+  children    Int           @default(0)
+  status      BookingStatus @default(CONFIRMED)
+  totalAmount Float
+  paidAmount  Float         @default(0)
+  guestId     String
+  guest       Guest         @relation(fields: [guestId], references: [id])
+  roomId      String
+  room        Room          @relation(fields: [roomId], references: [id])
+  tenantId    String
+  tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([guestId])
+  @@index([roomId])
+  @@index([tenantId])
+  @@index([status])
+  @@index([checkIn, checkOut])
+}
+
+// Salon/Spa specific models
+model Staff {
+  id             String             @id @default(cuid())
+  name           String
+  email          String?
+  phone          String?
+  specialization String?
+  bio            String?
+  image          String?
+  services       StaffService[]
+  appointments   StaffAppointment[]
+  tenantId       String
+  tenant         Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@index([tenantId])
+  @@index([name])
+  @@index([email])
+}
+
+model StaffService {
+  id        String   @id @default(cuid())
+  staffId   String
+  staff     Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  serviceId String
+  service   Product  @relation(fields: [serviceId], references: [id])
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([staffId])
+  @@index([serviceId])
+  @@index([tenantId])
+}
+
+model StaffAppointment {
+  id            String      @id @default(cuid())
+  staffId       String
+  staff         Staff       @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  appointmentId String
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  tenantId      String
+  tenant        Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([staffId])
+  @@index([appointmentId])
+  @@index([tenantId])
+}
+
+// Pharmacy specific models
+model Medication {
+  id                   String             @id @default(cuid())
+  name                 String
+  genericName          String?
+  dosage               String?
+  form                 String? // Tablet, Capsule, Liquid, etc.
+  manufacturer         String?
+  requiresPrescription Boolean            @default(false)
+  sideEffects          String?
+  storage              String?
+  productId            String             @unique
+  product              Product            @relation(fields: [productId], references: [id])
+  tenantId             String
+  tenant               Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  prescriptions        PrescriptionItem[]
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  @@index([productId])
+  @@index([tenantId])
+  @@index([name])
+  @@index([genericName])
+  @@index([requiresPrescription])
+}
+
+model Prescription {
+  id            String             @id @default(cuid())
+  patientName   String
+  patientPhone  String?
+  patientEmail  String?
+  doctorName    String?
+  doctorContact String?
+  issueDate     DateTime
+  expiryDate    DateTime?
+  notes         String?
+  items         PrescriptionItem[]
+  tenantId      String
+  tenant        Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@index([tenantId])
+  @@index([patientName])
+  @@index([issueDate, expiryDate])
+}
+
+model PrescriptionItem {
+  id             String       @id @default(cuid())
+  prescriptionId String
+  prescription   Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  medicationId   String
+  medication     Medication   @relation(fields: [medicationId], references: [id])
+  dosage         String?
+  frequency      String?
+  duration       String?
+  quantity       Int
+  tenantId       String
+  tenant         Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([prescriptionId])
+  @@index([medicationId])
+  @@index([tenantId])
+}
+
+// Supermarket specific models
+model Department {
+  id            String    @id @default(cuid())
+  name          String
+  description   String?
+  floorLocation String?
+  manager       String?
+  products      Product[] // Products in this department
+  tenantId      String
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([tenantId])
+  @@index([name])
+}
+
+model Promotion {
+  id            String             @id @default(cuid())
+  name          String
+  description   String?
+  startDate     DateTime
+  endDate       DateTime
+  discountType  DiscountType       @default(PERCENTAGE)
+  discountValue Float
+  products      PromotionProduct[]
+  tenantId      String
+  tenant        Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@index([tenantId])
+  @@index([startDate, endDate])
+  @@index([discountType])
+}
+
+model PromotionProduct {
+  id          String    @id @default(cuid())
+  promotionId String
+  promotion   Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id])
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([promotionId])
+  @@index([productId])
+  @@index([tenantId])
+}
+
+// Refund model
+model Refund {
+  id        String       @id @default(cuid())
+  orderId   String
+  order     Order        @relation(fields: [orderId], references: [id])
+  amount    Float
+  reason    String?
+  status    RefundStatus @default(PENDING)
+  tenantId  String
+  tenant    Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  createdBy String?
+
+  @@index([orderId])
+  @@index([tenantId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id          String      @id @default(cuid())
+  action      AuditAction
+  modelName   String
+  recordId    String
+  oldData     Json?
+  newData     Json?
+  createdById String?
+  createdBy   User?       @relation("CreatedBy", fields: [createdById], references: [id])
+  updatedById String?
+  updatedBy   User?       @relation("UpdatedBy", fields: [updatedById], references: [id])
+  tenantId    String
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt   DateTime    @default(now())
+
+  @@index([tenantId])
+  @@index([createdById])
+  @@index([updatedById])
+  @@index([modelName, recordId])
+  @@index([createdAt])
+  @@index([action])
+}
+
+// Authentication models
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Authenticator {
+  id           String   @id @default(cuid())
+  userId       String
+  credentialId String   @unique
+  publicKey    String
+  counter      Int
+  transports   String?
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+}
+
+// Enums
+// enum Role {
+//   USER
+//   ADMIN
+//   CASHIER
+//   MANAGER
+//   WAITER // For restaurants
+//   RECEPTIONIST // For hotels and services
+// }
+
+enum OrderStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  REFUNDED
+  READY_FOR_PICKUP // For restaurants
+  DELIVERED // For restaurants
+  PAID // For retail
+}
+
+enum OrderType {
+  STANDARD
+  TAKEOUT // For restaurants
+  DELIVERY // For restaurants and retail
+  RESERVATION // For hotels
+  APPOINTMENT // For services
+}
+
+enum PaymentType {
+  CASH
+  CREDIT_CARD
+  DEBIT_CARD
+  MOBILE_PAYMENT
+  ONLINE_PAYMENT
+  ROOM_CHARGE // For hotels
+  CREDIT // For buy now, pay later
+}
+
+enum TableStatus {
+  AVAILABLE
+  OCCUPIED
+  RESERVED
+  CLEANING
+}
+
+enum RoomStatus {
+  AVAILABLE
+  OCCUPIED
+  RESERVED
+  MAINTENANCE
+  CLEANING
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  CHECKED_IN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum ReservationStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+  NO_SHOW
+  WAITING_LIST
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CHECKED_IN
+  CHECKED_OUT
+  CANCELLED
+  NO_SHOW
+  EXTENDED
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+  BUY_X_GET_Y
+  BUNDLE
+}
+
+enum CreditStatus {
+  ACTIVE
+  SUSPENDED
+  CLOSED
+  OVERDUE
+}
+
+enum TransactionType {
+  PURCHASE
+  PAYMENT
+  ADJUSTMENT
+  REFUND
+  INTEREST
+  FEE
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+  OVERDUE
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  RESTORE
+}
+
+enum InventoryMovementType {
+  PURCHASE
+  SALE
+  ADJUSTMENT
+  RETURN
+  TRANSFER
+  LOSS
+  INITIAL
+}
+
+enum FulfillmentStatus {
+  UNFULFILLED
+  PARTIALLY_FULFILLED
+  FULFILLED
+  RETURNED
+  PARTIALLY_RETURNED
+}
+
+enum RefundStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  COMPLETED
+  CANCELLED
+}
+
+enum MembershipStatus {
+  ACTIVE
+  INACTIVE
+  EXPIRED
+}
+
+enum BillingCycle {
+  MONTHLY
+  QUARTERLY
+  SEMI_ANNUALLY
+  ANNUALLY
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELED
+  EXPIRED
+  PAST_DUE
+  PENDING
+  TRIAL
+}
+
+enum Role {
+  // Core roles (applicable to all business types)
+  OWNER // Business owner with full access
+  ADMIN // Administrator with near-full access
+  MANAGER // General manager
+  SUPERVISOR // Team supervisor
+  ACCOUNTANT // Financial access
+  CASHIER // Payment processing
+  INVENTORY_MANAGER // Stock management
+  EMPLOYEE // Basic staff member
+
+  // Retail specific
+  SALES_ASSOCIATE
+  MERCHANDISER
+  STORE_CLERK
+
+  // Restaurant specific
+  CHEF
+  SOUS_CHEF
+  WAITER
+  BARTENDER
+  HOST
+  KITCHEN_STAFF
+
+  // Hotel specific
+  RECEPTIONIST
+  CONCIERGE
+  HOUSEKEEPER
+  MAINTENANCE
+  BELLHOP
+
+  // Salon/Service specific
+  STYLIST
+  BEAUTICIAN
+  THERAPIST
+  TECHNICIAN
+
+  // Healthcare/Pharmacy specific
+  PHARMACIST
+  PHARMACY_TECH
+  DOCTOR
+  NURSE
+
+  // Supermarket specific
+  BUTCHER
+  BAKER
+  PRODUCE_MANAGER
+  DELI_WORKER
+
+  // Education specific
+  TEACHER
+  INSTRUCTOR
+  ADMINISTRATOR
+
+  // Transportation/Automotive specific
+  DRIVER
+  MECHANIC
+  DISPATCHER
+
+  // Construction specific
+  FOREMAN
+  CONTRACTOR
+  SITE_MANAGER
+
+  // Cybercafe specific
+  TECH_SUPPORT
+  NETWORK_ADMIN
+
+  // Event planning specific
+  EVENT_COORDINATOR
+  DECORATOR
+
+  // Security specific
+  SECURITY_GUARD
+  SECURITY_MANAGER
+
+  // Read-only role
+  VIEWER // Can only view data, no edit permissions
+
+  // user
+  USER
+}
