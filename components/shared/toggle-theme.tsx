@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Moon, Sun } from "lucide-react";
+import { Moon, Sun, Monitor } from "lucide-react";
 import { useTheme } from "next-themes";
 
 import { Button } from "@/components/ui/button";
@@ -11,9 +11,57 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 
-export function ModeToggle() {
-  const { setTheme } = useTheme();
+interface ModeToggleProps {
+  isNav?: boolean;
+}
+
+export function ModeToggle({ isNav = false }: ModeToggleProps) {
+  const { setTheme, theme } = useTheme();
+
+  if (isNav) {
+    return (
+      <div className="flex items-center gap-1 rounded-md border bg-background p-1">
+        <Button
+          variant="ghost"
+          size="icon"
+          className={cn(
+            "h-4 w-4 p-0",
+            theme === "light" && "bg-foreground text-background"
+          )}
+          onClick={() => setTheme("light")}
+        >
+          <Monitor className="h-3 w-3" />
+          <span className="sr-only">Light mode</span>
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className={cn(
+            "h-4 w-4 p-0",
+            theme === "dark" && "bg-foreground text-background"
+          )}
+          onClick={() => setTheme("dark")}
+        >
+          <Moon className="h-3 w-3" />
+          <span className="sr-only">Dark mode</span>
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className={cn(
+            "h-4 w-4 p-0",
+            theme === "system" && "bg-foreground text-background"
+          )}
+          onClick={() => setTheme("system")}
+        >
+          <Sun className="h-3 w-3" />
+          <span className="sr-only">System mode</span>
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <DropdownMenu>

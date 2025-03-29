@@ -144,22 +144,27 @@ export function AppSidebar({
         />
       </SidebarHeader>
       <SidebarContent>
-        <NavMain activeTenantSlug={activeTenantSlug} items={navItemsWithTenantSlug} />
+        <NavMain
+          activeTenantSlug={activeTenantSlug}
+          items={navItemsWithTenantSlug}
+        />
       </SidebarContent>
       <SidebarFooter>
-        {/* <ThemeColorToggle /> */}
-        {/* <div className="flex items-center justify-between gap-2"> */}
-          {/* <ModeToggle /> */}
-          <NavUser
-            user={
-              userData as {
-                name: string;
-                email: string;
-                avatar: string;
-              }
+        <NavUser
+          user={
+            userData as {
+              name: string;
+              email: string;
+              avatar: string;
             }
-          />
-        {/* </div> */}
+          }
+          isOwner={
+            tenantData.find((tenant) => tenant.id === activeTenantId)?.role ===
+              "OWNER" ||
+            tenantData.find((tenant) => tenant.id === activeTenantId)?.role ===
+              "ADMIN"
+          }
+        />
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>

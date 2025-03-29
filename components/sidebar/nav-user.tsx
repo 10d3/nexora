@@ -28,15 +28,19 @@ import {
 } from "@/components/ui/sidebar";
 import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
+import { ModeToggle } from "@/components/shared/toggle-theme";
+import { ThemeColorToggle } from "@/components/shared/color-toggle";
 
 export function NavUser({
   user,
+  isOwner = false,
 }: {
   user: {
     name: string;
     email: string;
     avatar?: string | null;
   };
+  isOwner?: boolean;
 }) {
   const { isMobile } = useSidebar();
   const router = useRouter();
@@ -100,13 +104,20 @@ export function NavUser({
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <Sparkles className="mr-2 h-4 w-4" />
-                Upgrade to Pro
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
+
+            {/* Only show upgrade option for tenant owners */}
+            {isOwner && (
+              <>
+                <DropdownMenuGroup>
+                  <DropdownMenuItem>
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    Upgrade to Pro
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+              </>
+            )}
+
             <DropdownMenuGroup>
               <DropdownMenuItem>
                 <UserIcon className="mr-2 h-4 w-4" />
@@ -116,14 +127,30 @@ export function NavUser({
                 <BadgeCheck className="mr-2 h-4 w-4" />
                 Account
               </DropdownMenuItem>
-              <DropdownMenuItem>
-                <CreditCard className="mr-2 h-4 w-4" />
-                Billing
-              </DropdownMenuItem>
+              {isOwner && (
+                <DropdownMenuItem>
+                  <CreditCard className="mr-2 h-4 w-4" />
+                  Billing
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem>
                 <Bell className="mr-2 h-4 w-4" />
                 Notifications
               </DropdownMenuItem>
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            {/* Theme preferences section */}
+            <DropdownMenuLabel className="font-medium text-xs text-muted-foreground">
+              Preferences
+            </DropdownMenuLabel>
+            <DropdownMenuGroup>
+              <div className="flex flex-row items-center justify-between px-2">
+                <div className="mb-1 text-xs font-medium">Theme</div>
+                <div className="flex items-center gap-2">
+                  <ModeToggle isNav />
+                </div>
+              </div>
+              <ThemeColorToggle />
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem
