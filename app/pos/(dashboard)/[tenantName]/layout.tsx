@@ -8,9 +8,38 @@ import {
 import { BreadcrumbNav } from "@/components/sidebar/breadcrumb-nav";
 import { Separator } from "@/components/ui/separator";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 import { ReactNode } from "react";
 import { DashboardProvider } from "@/context/dashboard-provider";
+import { getAllTenants } from "@/lib/utils/tenant-utils";
+import { env } from "@/lib/env";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: { tenantName: string };
+}) {
+  const paramsName = await params;
+  const tenantName = paramsName.tenantName;
+  const { activeTenant } = await getAllTenants(true, tenantName);
+  return {
+    title: `${activeTenant?.name} | Dashboard`,
+    description: "Dashboard for your business",
+    openGraph: {
+      title: `${activeTenant?.name} | Dashboard`,
+      description: "Dashboard for your business",
+      // images: [],
+    },
+    twitter: {
+      title: `${activeTenant?.name} | Dashboard`,
+      description: "Dashboard for your business",
+      // images: [],
+    },
+    icons: [activeTenant?.settings?.logoUrl || null],
+    metadataBase: new URL(
+      `https://pos.${env.NEXT_PUBLIC_ROOT_DOMAIN || "localhost:3000"}/${activeTenant?.slug}`
+    ),
+  };
+}
 
 export default async function PosLayout({
   params,
@@ -33,72 +62,21 @@ export default async function PosLayout({
 
     console.log("session is : ", session);
 
-    // Get all tenants the user has access to
-    // 1. Tenants the user owns (direct relation)
-    const ownedTenants = await prisma.tenant.findMany({
-      where: {
-        users: {
-          some: {
-            id: session.user.id,
-          },
-        },
-      },
-      include: {
-        settings: true,
-      },
-    });
+    // Get all tenants, active tenant, and formatted tenant data
+    const { allTenants, activeTenant, tenantsData } = await getAllTenants(
+      false,
+      tenantName,
+      session.user.id as string
+    );
 
-    // 2. Tenants where the user is a member
-    const memberTenants = await prisma.tenant.findMany({
-      where: {
-        members: {
-          some: {
-            userId: session.user.id,
-          },
-        },
-      },
-      include: {
-        settings: true,
-        members: {
-          where: {
-            userId: session.user.id,
-          },
-          select: {
-            role: true,
-          },
-        },
-      },
-    });
-
-    // Combine all tenants
-    const allTenants = [
-      ...ownedTenants.map((tenant) => ({
-        ...tenant,
-        role: "OWNER", // Assuming ownership means OWNER role
-      })),
-      ...memberTenants.map((tenant) => ({
-        ...tenant,
-        role: tenant.members[0]?.role || "MEMBER", // Get the user's role in this tenant
-      })),
-    ];
-
+    // If no tenants found, redirect to create tenant page
     if (allTenants.length === 0) {
-      console.error("No tenants found for user:", session.user.id);
       redirect("/create-tenant");
     }
 
-    // Get the active tenant from the user's session
-    let activeTenant = allTenants.find((tenant) => tenant.slug === tenantName);
-
-    // If no active tenant is set, use the first one
+    // If no active tenant, this should never happen as the function handles this case
     if (!activeTenant) {
-      activeTenant = allTenants[0];
-
-      // Update the user's active tenant in the database
-      // await prisma.user.update({
-      //   where: { id: session.user.id },
-      //   data: { tenantId: activeTenant.id },
-      // });
+      redirect("/create-tenant");
     }
 
     // Prepare data for the sidebar
@@ -107,16 +85,6 @@ export default async function PosLayout({
       email: session.user.email || "",
       avatar: session.user.image,
     };
-
-    // Format tenant data for the sidebar
-    const tenantsData = allTenants.map((tenant) => ({
-      id: tenant.id,
-      name: tenant.name,
-      businessType: tenant.businessType,
-      logo: tenant.settings?.logoUrl || null,
-      role: tenant.role,
-      slug: tenant.slug,
-    }));
 
     return (
       <SidebarProvider>
