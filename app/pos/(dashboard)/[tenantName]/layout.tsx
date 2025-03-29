@@ -9,9 +9,10 @@ import { BreadcrumbNav } from "@/components/sidebar/breadcrumb-nav";
 import { Separator } from "@/components/ui/separator";
 import { auth } from "@/lib/auth";
 import { ReactNode } from "react";
-import { DashboardProvider } from "@/context/dashboard-provider";
+// import { DashboardProvider } from "@/context/dashboard-provider";
 import { getAllTenants } from "@/lib/utils/tenant-utils";
 import { env } from "@/lib/env";
+import ProviderPos from "./providers-pos";
 
 export async function generateMetadata({
   params,
@@ -113,9 +114,7 @@ export default async function PosLayout({
               </div>
             </header>
             <main>
-              <DashboardProvider tenant={activeTenant}>
-                {children}
-              </DashboardProvider>
+              <ProviderPos tenant={activeTenant}>{children}</ProviderPos>
             </main>
           </div>
         </SidebarInset>

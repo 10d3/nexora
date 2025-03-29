@@ -564,24 +564,23 @@ model MenuItem {
 
 model Reservation {
   id              String            @id @default(cuid())
+  tenantId        String
+  tenant          Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  status          ReservationStatus @default(PENDING)
+  tableId         String?
+  table           Table?            @relation(fields: [tableId], references: [id])
   customerName    String
   customerPhone   String?
   customerEmail   String?
   partySize       Int
   reservationTime DateTime
+  endTime         DateTime?         // Add this field
   specialRequests String?
-  status          ReservationStatus @default(CONFIRMED)
-  tableId         String?
-  table           Table?            @relation(fields: [tableId], references: [id])
-  tenantId        String
-  tenant          Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
 
-  @@index([tableId])
   @@index([tenantId])
-  @@index([status])
-  @@index([reservationTime])
+  @@index([tableId])
 }
 
 // Hotel specific models
@@ -906,6 +905,15 @@ model Authenticator {
 //   MANAGER
 //   WAITER // For restaurants
 //   RECEPTIONIST // For hotels and services
+// }
+
+// enum ReservationStatus {
+//   PENDING
+//   CONFIRMED
+//   CANCELLED
+//   COMPLETED
+//   NO_SHOW
+//   WAITING_LIST
 // }
 
 enum OrderStatus {
