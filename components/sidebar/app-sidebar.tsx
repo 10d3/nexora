@@ -14,10 +14,10 @@ import {
   SidebarHeader,
   SidebarRail,
 } from "@/components/ui/sidebar";
-import { ModeToggle } from "@/components/shared/toggle-theme";
+// import { ModeToggle } from "@/components/shared/toggle-theme";
 import { getNavLinks } from "@/lib/constant/nav-links";
 import { BusinessType } from "@prisma/client";
-import { ThemeColorToggle } from "../shared/color-toggle";
+// import { ThemeColorToggle } from "../shared/color-toggle";
 
 interface TenantData {
   id: string;
@@ -147,9 +147,9 @@ export function AppSidebar({
         <NavMain activeTenantSlug={activeTenantSlug} items={navItemsWithTenantSlug} />
       </SidebarContent>
       <SidebarFooter>
-        <ThemeColorToggle />
-        <div className="flex items-center justify-between gap-2">
-          <ModeToggle />
+        {/* <ThemeColorToggle /> */}
+        {/* <div className="flex items-center justify-between gap-2"> */}
+          {/* <ModeToggle /> */}
           <NavUser
             user={
               userData as {
@@ -159,7 +159,7 @@ export function AppSidebar({
               }
             }
           />
-        </div>
+        {/* </div> */}
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>
