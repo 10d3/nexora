@@ -20,7 +20,7 @@ import {
   isToday,
 } from "date-fns"
 import { cn } from "@/lib/utils"
-import { CalendarIcon, ChevronLeft, ChevronRight, GripVertical, Info, MoreHorizontal, Plus } from "lucide-react"
+import { CalendarIcon, ChevronLeft, ChevronRight, GripVertical, MoreHorizontal, Plus } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
@@ -476,103 +476,87 @@ export function ReservationCalendar() {
         </CardContent>
       </Card>
 
-      <div className="flex flex-wrap gap-3 justify-center p-4 bg-white rounded-lg shadow-sm border">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="flex items-center gap-1">
-                <Badge variant="outline" className="bg-green-100 text-green-800 border-green-500">
+      <Card className="p-4">
+        <div className="flex flex-wrap gap-3 justify-center">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge variant="outline" className="cursor-help">
                   Confirmed
                 </Badge>
-                <Info className="h-3 w-3 text-muted-foreground" />
-              </div>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Reservation has been confirmed</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Reservation has been confirmed</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
 
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="flex items-center gap-1">
-                <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-500">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge variant="secondary" className="cursor-help">
                   Pending
                 </Badge>
-                <Info className="h-3 w-3 text-muted-foreground" />
-              </div>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Reservation is awaiting confirmation</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Reservation is awaiting confirmation</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
 
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="flex items-center gap-1">
-                <Badge variant="outline" className="bg-red-100 text-red-800 border-red-500">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge variant="destructive" className="cursor-help">
                   Cancelled
                 </Badge>
-                <Info className="h-3 w-3 text-muted-foreground" />
-              </div>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Reservation has been cancelled</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Reservation has been cancelled</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
 
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="flex items-center gap-1">
-                <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-500">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge variant="default" className="cursor-help">
                   Completed
                 </Badge>
-                <Info className="h-3 w-3 text-muted-foreground" />
-              </div>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Reservation has been completed</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Reservation has been completed</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
 
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="flex items-center gap-1">
-                <Badge variant="outline" className="bg-gray-100 text-gray-800 border-gray-500">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge variant="outline" className="cursor-help">
                   No Show
                 </Badge>
-                <Info className="h-3 w-3 text-muted-foreground" />
-              </div>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Customer did not show up</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Customer did not show up</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
 
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="flex items-center gap-1">
-                <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-500">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge variant="secondary" className="cursor-help">
                   Waiting List
                 </Badge>
-                <Info className="h-3 w-3 text-muted-foreground" />
-              </div>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Customer is on the waiting list</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Customer is on the waiting list</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+      </Card>
 
       {/* Edit dialog for existing reservations */}
       <ReservationDialog
