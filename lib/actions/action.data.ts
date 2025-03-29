@@ -600,3 +600,375 @@ export async function getCurrentTenant(userId: string) {
     return { error: "Failed to fetch current tenant" };
   }
 }
+
+// Hotel-specific actions
+export async function getHotelStats(
+  tenantId: string,
+  dateFrom?: Date,
+  dateTo?: Date
+) {
+  try {
+    // Set default date range if not provided
+    const to = dateTo || new Date();
+    const from = dateFrom || new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000); // 30 days before
+
+    // Get room occupancy
+    const rooms = await prisma.room.findMany({
+      where: {
+        tenantId,
+      },
+    });
+
+    const totalRooms = rooms.length;
+    const occupiedRooms = rooms.filter(
+      (room) => room.status === "OCCUPIED"
+    ).length;
+
+    // Get bookings for today
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const bookingsToday = await prisma.booking.count({
+      where: {
+        tenantId,
+        checkIn: {
+          gte: today,
+          lt: tomorrow,
+        },
+      },
+    });
+
+    // Get average stay length
+    type StayLengthResult = {
+      avg_days: number | null;
+    }[];
+
+    let averageStayLength = 2; // Default fallback value
+    try {
+      const stayLengthResult = await prisma.$queryRaw<StayLengthResult>`
+            SELECT AVG(EXTRACT(EPOCH FROM (check_out - check_in)) / 86400) as avg_days
+            FROM "Booking"
+            WHERE 
+              tenant_id = ${tenantId}
+              AND check_in >= ${from}
+              AND check_in <= ${to}
+          `;
+
+      if (stayLengthResult[0]?.avg_days) {
+        averageStayLength = stayLengthResult[0].avg_days;
+      }
+    } catch (error) {
+      console.error("Error calculating average stay length:", error);
+      // Keep using the default value
+    }
+
+    // Get rooms by status
+    const roomsByStatus = [
+      {
+        name: "Available",
+        value: rooms.filter((room) => room.status === "AVAILABLE").length,
+      },
+      {
+        name: "Occupied",
+        value: occupiedRooms,
+      },
+      {
+        name: "Maintenance",
+        value: rooms.filter((room) => room.status === "MAINTENANCE").length,
+      },
+    ];
+
+    // Get upcoming check-ins
+    const upcomingCheckIns = await prisma.booking.findMany({
+      where: {
+        tenantId,
+        checkIn: {
+          gte: new Date(),
+        },
+        status: "CONFIRMED",
+      },
+      include: {
+        guest: true,
+        room: true,
+      },
+      orderBy: {
+        checkIn: "asc",
+      },
+      take: 5,
+    });
+
+    const formattedUpcomingCheckIns = upcomingCheckIns.map((booking) => ({
+      room: booking.room.number,
+      guest: `${booking.guest.firstName} ${booking.guest.lastName}`,
+      arrival: booking.checkIn.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      status: booking.status.toLowerCase(),
+      nights: Math.ceil(
+        (booking.checkOut.getTime() - booking.checkIn.getTime()) /
+          (1000 * 60 * 60 * 24)
+      ),
+    }));
+
+    return {
+      roomOccupancy: occupiedRooms,
+      totalRooms,
+      bookingsToday,
+      averageStayLength,
+      roomsByStatus,
+      upcomingCheckIns: formattedUpcomingCheckIns,
+      occupancyRate: totalRooms > 0 ? (occupiedRooms / totalRooms) * 100 : 0,
+    };
+  } catch (error) {
+    console.error("Error fetching hotel stats:", error);
+    return { error: "Failed to fetch hotel statistics" };
+  }
+}
+
+// Salon-specific actions
+export async function getSalonStats(
+  tenantId: string,
+  dateFrom?: Date,
+  dateTo?: Date
+) {
+  try {
+    // Set default date range if not provided
+    const to = dateTo || new Date();
+    const from = dateFrom || new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000); // 30 days before
+
+    // Get total appointments
+    const totalAppointments = await prisma.appointment.count({
+      where: {
+        tenantId,
+        startTime: {
+          gte: from,
+          lte: to,
+        },
+      },
+    });
+
+    // Get appointments for today
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const appointmentsToday = await prisma.appointment.count({
+      where: {
+        tenantId,
+        startTime: {
+          gte: today,
+          lt: tomorrow,
+        },
+      },
+    });
+
+    // Get staff availability
+    const staff = await prisma.staff.findMany({
+      where: {
+        tenantId,
+      },
+      include: {
+        appointments: {
+          include: {
+            appointment: true,
+          },
+          where: {
+            appointment: {
+              startTime: {
+                gte: today,
+                lt: tomorrow,
+              },
+            },
+          },
+        },
+        services: true,
+      },
+    });
+
+    // Get upcoming appointments
+    const upcomingAppointments = await prisma.appointment.findMany({
+      where: {
+        tenantId,
+        startTime: {
+          gte: new Date(),
+        },
+      },
+      include: {
+        user: true,
+        staffAppointments: {
+          include: {
+            staff: true,
+          },
+        },
+      },
+      orderBy: {
+        startTime: "asc",
+      },
+      take: 5,
+    });
+
+    const formattedUpcomingAppointments = upcomingAppointments.map(
+      (appointment) => {
+        const time = appointment.startTime;
+        const duration = Math.round(
+          (appointment.endTime.getTime() - appointment.startTime.getTime()) /
+            (1000 * 60)
+        );
+
+        return {
+          time: `${time.getHours()}:${time.getMinutes().toString().padStart(2, "0")} ${time.getHours() >= 12 ? "PM" : "AM"}`,
+          client: appointment.user.name,
+          service: "Service", // You would need to fetch the actual service name
+          stylist: appointment.staffAppointments[0]?.staff.name || "Unassigned",
+          duration: `${duration} min`,
+          status: appointment.status.toLowerCase(),
+        };
+      }
+    );
+
+    const formattedStaffAvailability = staff.map((member) => ({
+      name: member.name,
+      availability: member.appointments.length > 0 ? "busy" : "available",
+      appointments: member.appointments.length,
+      specialization: member.specialization || "General",
+    }));
+
+    return {
+      totalAppointments,
+      appointmentsToday,
+      staffAvailability: formattedStaffAvailability,
+      upcomingAppointments: formattedUpcomingAppointments,
+      clientRetention: 85, // Placeholder - would need actual calculation
+    };
+  } catch (error) {
+    console.error("Error fetching salon stats:", error);
+    return { error: "Failed to fetch salon statistics" };
+  }
+}
+
+// Pharmacy-specific actions
+export async function getPharmacyStats(
+  tenantId: string,
+  dateFrom?: Date,
+  dateTo?: Date
+) {
+  try {
+    // Set default date range if not provided
+    const to = dateTo || new Date();
+    const from = dateFrom || new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000); // 30 days before
+
+    // Get total prescriptions
+    const totalPrescriptions = await prisma.prescription.count({
+      where: {
+        tenantId,
+        issueDate: {
+          gte: from,
+          lte: to,
+        },
+      },
+    });
+
+    // Get medications that are expiring soon (within 30 days)
+    const thirtyDaysFromNow = new Date();
+    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+
+    const expiringMedications = await prisma.inventory.count({
+      where: {
+        tenantId,
+        expiryDate: {
+          lte: thirtyDaysFromNow,
+          gt: new Date(),
+        },
+      },
+    });
+
+    // Get low stock medications
+    const lowStockThreshold = 10;
+    const lowStockMedications = await prisma.product.count({
+      where: {
+        tenantId,
+        stockQty: {
+          lt: lowStockThreshold,
+        },
+        medication: {
+          isNot: null,
+        },
+      },
+    });
+
+    // Get recent prescriptions
+    const recentPrescriptions = await prisma.prescription.findMany({
+      where: {
+        tenantId,
+      },
+      include: {
+        items: {
+          include: {
+            medication: true,
+          },
+        },
+      },
+      orderBy: {
+        issueDate: "desc",
+      },
+      take: 5,
+    });
+
+    const formattedRecentPrescriptions = recentPrescriptions.map(
+      (prescription, index) => ({
+        id: prescription.id.substring(0, 7).toUpperCase(),
+        patient: prescription.patientName,
+        medication:
+          prescription.items[0]?.medication.name || "Multiple medications",
+        status: ["ready", "processing", "pending", "ready"][index % 4],
+        date: prescription.issueDate.toLocaleDateString(),
+      })
+    );
+
+    // Get expiring medications list
+    const expiringMedicationsList = await prisma.inventory.findMany({
+      where: {
+        tenantId,
+        expiryDate: {
+          lte: thirtyDaysFromNow,
+          gt: new Date(),
+        },
+      },
+      include: {
+        product: true,
+      },
+      take: 5,
+    });
+
+    const formattedExpiringMedications = expiringMedicationsList.map(
+      (inventory) => {
+        const daysToExpiry = Math.ceil(
+          (inventory.expiryDate!.getTime() - new Date().getTime()) /
+            (1000 * 60 * 60 * 24)
+        );
+
+        return {
+          name: inventory.product.name,
+          stock: inventory.product.stockQty,
+          expiry: `${daysToExpiry} days`,
+          reorder: inventory.product.stockQty < lowStockThreshold,
+        };
+      }
+    );
+
+    return {
+      totalPrescriptions,
+      expiringMedications,
+      lowStockMedications,
+      prescriptionTracking: formattedRecentPrescriptions,
+      expiringMedicationsList: formattedExpiringMedications,
+    };
+  } catch (error) {
+    console.error("Error fetching pharmacy stats:", error);
+    return { error: "Failed to fetch pharmacy statistics" };
+  }
+}

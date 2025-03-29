@@ -443,6 +443,7 @@ const businessSpecificNavLinks: Record<BusinessType, NavItem[]> = {
 };
 
 // Function to get navigation links based on business type
+// Function to get navigation links based on business type
 export function getNavLinks(businessType: BusinessType): NavItem[] {
   const specificLinks = businessSpecificNavLinks[businessType] || [];
 
@@ -452,6 +453,12 @@ export function getNavLinks(businessType: BusinessType): NavItem[] {
     hasSubmenu: !!link.items && link.items.length > 0,
   }));
 
+  // Filter out Products link for RESTAURANT business type
+  const filteredCommonLinks =
+    businessType === "RESTAURANT"
+      ? commonNavLinks.filter((link) => link.title !== "Products")
+      : commonNavLinks;
+
   // Add settings as the last item
-  return [...commonNavLinks, ...processedSpecificLinks, settingsNavItem];
+  return [...filteredCommonLinks, ...processedSpecificLinks, settingsNavItem];
 }

@@ -1,24 +1,21 @@
-"use client"
+"use client";
 
-import { Users, Calendar, Clock, UserCheck } from "lucide-react"
-// import { DataCard } from "@/components/ui/data-card"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-
+import { Users, Calendar, Clock, UserCheck } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Chart,
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  ChartTooltipItem,
-  ChartTooltipLabel,
-  ChartTooltipValue,
-} from "@/components/ui/chart"
-import { Area, Line, Pie, PieChart } from "recharts"
-import { DataCard } from "../shared/data-card"
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { DataCard } from "../shared/data-card";
+import { InteractivePieChart } from "@/components/chart/interactive-pie";
+import { InteractiveAreaChart } from "@/components/chart/area-chart";
 
 // Sample data
 const servicePopularity = [
@@ -27,30 +24,78 @@ const servicePopularity = [
   { name: "Manicure", value: 20 },
   { name: "Facial", value: 15 },
   { name: "Massage", value: 5 },
-]
+];
 
 const retentionData = [
-  { name: "Jan", rate: 75 },
-  { name: "Feb", rate: 78 },
-  { name: "Mar", rate: 80 },
-  { name: "Apr", rate: 82 },
-  { name: "May", rate: 85 },
-  { name: "Jun", rate: 88 },
-]
+  { date: "2023-01-01", rate: 75 },
+  { date: "2023-02-01", rate: 78 },
+  { date: "2023-03-01", rate: 80 },
+  { date: "2023-04-01", rate: 82 },
+  { date: "2023-05-01", rate: 85 },
+  { date: "2023-06-01", rate: 88 },
+];
 
 const upcomingAppointments = [
-  { time: "10:00 AM", client: "Emma Wilson", service: "Haircut & Style", stylist: "John", duration: "45 min" },
-  { time: "11:00 AM", client: "Michael Brown", service: "Color & Cut", stylist: "Sarah", duration: "90 min" },
-  { time: "12:30 PM", client: "Lisa Chen", service: "Manicure", stylist: "Amy", duration: "30 min" },
-  { time: "1:30 PM", client: "David Lee", service: "Facial", stylist: "Mark", duration: "60 min" },
-]
+  {
+    time: "10:00 AM",
+    client: "Emma Wilson",
+    service: "Haircut & Style",
+    stylist: "John",
+    duration: "45 min",
+  },
+  {
+    time: "11:00 AM",
+    client: "Michael Brown",
+    service: "Color & Cut",
+    stylist: "Sarah",
+    duration: "90 min",
+  },
+  {
+    time: "12:30 PM",
+    client: "Lisa Chen",
+    service: "Manicure",
+    stylist: "Amy",
+    duration: "30 min",
+  },
+  {
+    time: "1:30 PM",
+    client: "David Lee",
+    service: "Facial",
+    stylist: "Mark",
+    duration: "60 min",
+  },
+];
 
 const staffAvailability = [
-  { name: "John", role: "Stylist", status: "available", appointments: 3, nextAvailable: "10:00 AM" },
-  { name: "Sarah", role: "Colorist", status: "busy", appointments: 5, nextAvailable: "2:30 PM" },
-  { name: "Amy", role: "Nail Tech", status: "available", appointments: 2, nextAvailable: "11:30 AM" },
-  { name: "Mark", role: "Esthetician", status: "break", appointments: 4, nextAvailable: "1:00 PM" },
-]
+  {
+    name: "John",
+    role: "Stylist",
+    status: "available",
+    appointments: 3,
+    nextAvailable: "10:00 AM",
+  },
+  {
+    name: "Sarah",
+    role: "Colorist",
+    status: "busy",
+    appointments: 5,
+    nextAvailable: "2:30 PM",
+  },
+  {
+    name: "Amy",
+    role: "Nail Tech",
+    status: "available",
+    appointments: 2,
+    nextAvailable: "11:30 AM",
+  },
+  {
+    name: "Mark",
+    role: "Esthetician",
+    status: "break",
+    appointments: 4,
+    nextAvailable: "1:00 PM",
+  },
+];
 
 export function SalonDashboard() {
   return (
@@ -119,10 +164,14 @@ export function SalonDashboard() {
                 </Table>
               </TabsContent>
               <TabsContent value="tomorrow">
-                <p className="text-sm text-muted-foreground">Appointments for tomorrow will appear here.</p>
+                <p className="text-sm text-muted-foreground">
+                  Appointments for tomorrow will appear here.
+                </p>
               </TabsContent>
               <TabsContent value="week">
-                <p className="text-sm text-muted-foreground">Appointments for this week will appear here.</p>
+                <p className="text-sm text-muted-foreground">
+                  Appointments for this week will appear here.
+                </p>
               </TabsContent>
             </Tabs>
           </CardContent>
@@ -158,7 +207,11 @@ export function SalonDashboard() {
                     <TableCell>
                       <Badge
                         variant={
-                          staff.status === "available" ? "default" : staff.status === "busy" ? "secondary" : "outline"
+                          staff.status === "available"
+                            ? "default"
+                            : staff.status === "busy"
+                              ? "secondary"
+                              : "outline"
                         }
                       >
                         {staff.status}
@@ -175,67 +228,26 @@ export function SalonDashboard() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Service Popularity</CardTitle>
-          </CardHeader>
-          <CardContent className="flex justify-center">
-            <ChartContainer className="h-[300px]">
-              <PieChart>
-                <Pie
-                  data={servicePopularity}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={80}
-                  fill="hsl(var(--primary))"
-                  label
-                />
-              </PieChart>
-              <ChartTooltip>
-                <ChartTooltipContent>
-                  <ChartTooltipItem>
-                    <ChartTooltipLabel />: <ChartTooltipValue />%
-                  </ChartTooltipItem>
-                </ChartTooltipContent>
-              </ChartTooltip>
-            </ChartContainer>
-          </CardContent>
-        </Card>
+        <InteractivePieChart
+          title="Service Popularity"
+          description="Distribution of service bookings"
+          data={servicePopularity}
+          isLoading={false}
+          error={null}
+        />
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Customer Retention Rate</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer className="h-[300px]">
-              <Chart>
-                <Line
-                  type="monotone"
-                  dataKey="rate"
-                  data={retentionData}
-                  stroke="hsl(var(--primary))"
-                  strokeWidth={2}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="rate"
-                  data={retentionData}
-                  fill="hsl(var(--primary) / 0.2)"
-                  stroke="transparent"
-                />
-              </Chart>
-              <ChartTooltip>
-                <ChartTooltipContent>
-                  <ChartTooltipItem>
-                    <ChartTooltipLabel />: <ChartTooltipValue />%
-                  </ChartTooltipItem>
-                </ChartTooltipContent>
-              </ChartTooltip>
-            </ChartContainer>
-          </CardContent>
-        </Card>
+        <InteractiveAreaChart
+          title="Customer Retention Rate"
+          description="Monthly retention percentage"
+          data={retentionData}
+          dataKeys={["rate"]}
+          timeRangeOptions={[
+            { value: "6m", label: "Last 6 months", days: 180 },
+            { value: "1y", label: "Last year", days: 365 },
+          ]}
+          isLoading={false}
+          error={null}
+        />
       </div>
 
       <Card>
@@ -284,6 +296,5 @@ export function SalonDashboard() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
-

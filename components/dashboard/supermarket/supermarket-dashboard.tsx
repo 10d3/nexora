@@ -1,22 +1,20 @@
-"use client"
+"use client";
 
-import { ShoppingCart, TrendingUp, Package, Truck } from "lucide-react"
-import { DataCard } from "@/components/ui/data-card"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
-
+import { ShoppingCart, TrendingUp, Package, Truck } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  Chart,
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  ChartTooltipItem,
-  ChartTooltipLabel,
-  ChartTooltipValue,
-} from "@/components/ui/chart"
-import { Bar, Pie, PieChart } from "recharts"
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { DataCard } from "../shared/data-card";
+import { InteractivePieChart } from "@/components/chart/interactive-pie";
+import { InteractiveAreaChart } from "@/components/chart/area-chart";
 
 // Sample data
 const departmentPerformance = [
@@ -25,7 +23,7 @@ const departmentPerformance = [
   { name: "Dairy", sales: 28000, target: 25000 },
   { name: "Meat", sales: 35000, target: 40000 },
   { name: "Bakery", sales: 18000, target: 20000 },
-]
+];
 
 const categorySales = [
   { name: "Grocery", value: 35 },
@@ -33,34 +31,69 @@ const categorySales = [
   { name: "Dairy", value: 15 },
   { name: "Meat", value: 15 },
   { name: "Bakery", value: 10 },
-]
+];
 
 const promotionEffectiveness = [
-  { name: "Week 1", before: 10000, during: 15000, after: 12000 },
-  { name: "Week 2", before: 11000, during: 18000, after: 13000 },
-  { name: "Week 3", before: 10500, during: 17000, after: 12500 },
-]
+  { date: "2023-06-01", before: 10000, during: 15000, after: 12000 },
+  { date: "2023-06-08", before: 11000, during: 18000, after: 13000 },
+  { date: "2023-06-15", before: 10500, during: 17000, after: 12500 },
+];
 
 const perishableInventory = [
-  { name: "Fresh Produce", expiring: "2 days", quantity: 120, status: "critical" },
-  { name: "Dairy Products", expiring: "5 days", quantity: 85, status: "warning" },
+  {
+    name: "Fresh Produce",
+    expiring: "2 days",
+    quantity: 120,
+    status: "critical",
+  },
+  {
+    name: "Dairy Products",
+    expiring: "5 days",
+    quantity: 85,
+    status: "warning",
+  },
   { name: "Bakery Items", expiring: "1 day", quantity: 45, status: "critical" },
-  { name: "Meat Products", expiring: "3 days", quantity: 65, status: "warning" },
-]
+  {
+    name: "Meat Products",
+    expiring: "3 days",
+    quantity: 65,
+    status: "warning",
+  },
+];
 
 const supplierDeliveries = [
-  { supplier: "FreshFarms Inc.", items: "Produce", scheduled: "Today, 10:00 AM", status: "on-time" },
-  { supplier: "Dairy Delights", items: "Dairy", scheduled: "Tomorrow, 8:00 AM", status: "pending" },
-  { supplier: "Meat Masters", items: "Meat", scheduled: "Today, 2:00 PM", status: "delayed" },
-  { supplier: "Bakery Supplies", items: "Bakery", scheduled: "Tomorrow, 6:00 AM", status: "pending" },
-]
+  {
+    supplier: "FreshFarms Inc.",
+    items: "Produce",
+    scheduled: "Today, 10:00 AM",
+    status: "on-time",
+  },
+  {
+    supplier: "Dairy Delights",
+    items: "Dairy",
+    scheduled: "Tomorrow, 8:00 AM",
+    status: "pending",
+  },
+  {
+    supplier: "Meat Masters",
+    items: "Meat",
+    scheduled: "Today, 2:00 PM",
+    status: "delayed",
+  },
+  {
+    supplier: "Bakery Supplies",
+    items: "Bakery",
+    scheduled: "Tomorrow, 6:00 AM",
+    status: "pending",
+  },
+];
 
 const shrinkageData = [
   { name: "Expired", value: 45 },
   { name: "Damaged", value: 25 },
   { name: "Theft", value: 20 },
   { name: "Administrative", value: 10 },
-]
+];
 
 export function SupermarketDashboard() {
   return (
@@ -84,7 +117,12 @@ export function SupermarketDashboard() {
           description="124 low stock"
           icon={<Package className="h-4 w-4" />}
         />
-        <DataCard title="Deliveries Today" value="8" description="2 delayed" icon={<Truck className="h-4 w-4" />} />
+        <DataCard
+          title="Deliveries Today"
+          value="8"
+          description="2 delayed"
+          icon={<Truck className="h-4 w-4" />}
+        />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -110,7 +148,10 @@ export function SupermarketDashboard() {
                     <TableCell>${dept.target.toLocaleString()}</TableCell>
                     <TableCell>
                       <div className="flex w-full items-center gap-2">
-                        <Progress value={(dept.sales / dept.target) * 100} className="h-2" />
+                        <Progress
+                          value={(dept.sales / dept.target) * 100}
+                          className="h-2"
+                        />
                         <span className="text-xs text-muted-foreground">
                           {Math.round((dept.sales / dept.target) * 100)}%
                         </span>
@@ -123,105 +164,36 @@ export function SupermarketDashboard() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Category Sales Breakdown</CardTitle>
-          </CardHeader>
-          <CardContent className="flex justify-center">
-            <ChartContainer className="h-[300px]">
-              <PieChart>
-                <Pie
-                  data={categorySales}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={80}
-                  fill="hsl(var(--primary))"
-                  label
-                />
-              </PieChart>
-              <ChartTooltip>
-                <ChartTooltipContent>
-                  <ChartTooltipItem>
-                    <ChartTooltipLabel />: <ChartTooltipValue />%
-                  </ChartTooltipItem>
-                </ChartTooltipContent>
-              </ChartTooltip>
-            </ChartContainer>
-          </CardContent>
-        </Card>
+        <InteractivePieChart
+          title="Category Sales Breakdown"
+          description="Distribution of sales by department"
+          data={categorySales}
+          isLoading={false}
+          error={null}
+        />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Promotion Effectiveness</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer className="h-[300px]">
-              <Chart>
-                <Bar
-                  dataKey="before"
-                  data={promotionEffectiveness}
-                  fill="hsl(var(--muted-foreground))"
-                  radius={4}
-                  name="Before"
-                />
-                <Bar
-                  dataKey="during"
-                  data={promotionEffectiveness}
-                  fill="hsl(var(--primary))"
-                  radius={4}
-                  name="During"
-                />
-                <Bar
-                  dataKey="after"
-                  data={promotionEffectiveness}
-                  fill="hsl(var(--secondary))"
-                  radius={4}
-                  name="After"
-                />
-              </Chart>
-              <ChartTooltip>
-                <ChartTooltipContent>
-                  <ChartTooltipItem>
-                    <ChartTooltipLabel />: $<ChartTooltipValue />
-                  </ChartTooltipItem>
-                </ChartTooltipContent>
-              </ChartTooltip>
-            </ChartContainer>
-          </CardContent>
-        </Card>
+        <InteractiveAreaChart
+          title="Promotion Effectiveness"
+          description="Sales before, during, and after promotions"
+          data={promotionEffectiveness}
+          dataKeys={["before", "during", "after"]}
+          timeRangeOptions={[
+            { value: "1m", label: "Last month", days: 30 },
+            { value: "3m", label: "Last 3 months", days: 90 },
+          ]}
+          isLoading={false}
+          error={null}
+        />
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Shrinkage Reports</CardTitle>
-          </CardHeader>
-          <CardContent className="flex justify-center">
-            <ChartContainer className="h-[300px]">
-              <PieChart>
-                <Pie
-                  data={shrinkageData}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={80}
-                  fill="hsl(var(--primary))"
-                  label
-                />
-              </PieChart>
-              <ChartTooltip>
-                <ChartTooltipContent>
-                  <ChartTooltipItem>
-                    <ChartTooltipLabel />: <ChartTooltipValue />%
-                  </ChartTooltipItem>
-                </ChartTooltipContent>
-              </ChartTooltip>
-            </ChartContainer>
-          </CardContent>
-        </Card>
+        <InteractivePieChart
+          title="Shrinkage Reports"
+          description="Sources of inventory loss"
+          data={shrinkageData}
+          isLoading={false}
+          error={null}
+        />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -306,6 +278,5 @@ export function SupermarketDashboard() {
         </Card>
       </div>
     </div>
-  )
+  );
 }
-
