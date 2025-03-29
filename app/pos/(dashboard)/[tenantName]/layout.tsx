@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ReactNode } from "react";
+import { DashboardProvider } from "@/context/dashboard-provider";
 
 export default async function PosLayout({
   params,
@@ -143,7 +144,11 @@ export default async function PosLayout({
                 <BreadcrumbNav activeTenat={activeTenant.slug} />
               </div>
             </header>
-            <main>{children}</main>
+            <main>
+              <DashboardProvider tenant={activeTenant}>
+                {children}
+              </DashboardProvider>
+            </main>
           </div>
         </SidebarInset>
       </SidebarProvider>

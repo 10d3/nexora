@@ -331,6 +331,10 @@ model Order {
   refunds           Refund[]
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
+  completedAt       DateTime?
+  completedBy       String?
+  completedReason   String?
+  deletedBy         String?
   deletedAt         DateTime?
 
   @@index([tenantId])
