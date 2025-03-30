@@ -8,5 +8,5 @@ export default async function page({
   const pageParams = await params;
   const { domain, slug } = pageParams;
   console.log(domain, slug);
-  return <div>page</div>;
+  return <div className="container">page</div>;
 }
