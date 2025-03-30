@@ -16,13 +16,11 @@ export const config = {
 };
 
 export default async function middleware(req: NextRequest) {
-
   const url = req.nextUrl;
 
-  let hostname =
-    req.headers
-      .get("host")!
-      .replace(".localhost:3000", `.${process.env.NEXT_PUBLIC_ROOT_DOMAIN}`);
+  let hostname = req.headers
+    .get("host")!
+    .replace(".localhost:3000", `.${process.env.NEXT_PUBLIC_ROOT_DOMAIN}`);
 
   // special case for Vercel preview deployment URLs
   if (
@@ -52,7 +50,6 @@ export default async function middleware(req: NextRequest) {
 
   //rewrites for pos
   if (hostname == `pos.${process.env.NEXT_PUBLIC_ROOT_DOMAIN}`) {
-
     // Get the session
     const session = await getToken({ req, secret: process.env.AUTH_SECRET });
     console.log("session from middleware", session);
@@ -66,6 +63,24 @@ export default async function middleware(req: NextRequest) {
 
     return NextResponse.rewrite(
       new URL(`/pos${path === "/" ? "" : path}`, req.url)
+    );
+  }
+
+  //rewrites for marketing
+  if (hostname == `marketing.${process.env.NEXT_PUBLIC_ROOT_DOMAIN}`) {
+    //get session
+    const session = await getToken({ req, secret: process.env.AUTH_SECRET });
+    console.log("session from middleware", session);
+
+    // Fix the conditional logic with proper parentheses
+    if (!session && path !== "/sign-in" && path !== "/sign-up") {
+      return NextResponse.redirect(new URL("/sign-in", req.url));
+    } else if (session && (path === "/sign-in" || path === "/sign-up")) {
+      return NextResponse.redirect(new URL("/", req.url));
+    }
+
+    return NextResponse.rewrite(
+      new URL(`/marketing${path === "/" ? "" : path}`, req.url)
     );
   }
 

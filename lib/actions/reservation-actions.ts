@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { ReservationStatus } from "@prisma/client";
+import { checkPermission } from "../permissions/server-permissions";
+import { Permission } from "../permissions/role-permissions";
 
 // Validation schema for creating/updating reservations
 const reservationSchema = z.object({
@@ -33,6 +35,12 @@ export async function getReservations(
   search?: string
 ) {
   try {
+    // Check if user has permission to view reservations
+    const hasPermission = await checkPermission(Permission.VIEW_RESERVATIONS);
+    if (!hasPermission) {
+      return { error: "You don't have permission to view reservations" };
+    }
+
     // Build filter conditions
     const where: any = { tenantId };
 
@@ -193,6 +201,15 @@ export async function createReservation(
   tenantId: string
 ) {
   try {
+    // Check if user has permission to create reservations
+    const hasPermission = await checkPermission(Permission.CREATE_RESERVATIONS);
+    if (!hasPermission) {
+      return {
+        success: false,
+        error: "You don't have permission to create reservations",
+      };
+    }
+
     const validatedData = reservationSchema.parse(data);
 
     // Map the frontend data structure to the Prisma schema
@@ -231,6 +248,15 @@ export async function updateReservation(
   tenantId: string
 ) {
   try {
+    // Check if user has permission to update reservations
+    const hasPermission = await checkPermission(Permission.UPDATE_RESERVATIONS);
+    if (!hasPermission) {
+      return {
+        success: false,
+        error: "You don't have permission to update reservations",
+      };
+    }
+
     const validatedData = reservationSchema.parse(data);
     const id = validatedData.id;
 
@@ -283,6 +309,14 @@ export async function deleteReservation(
   tenantId: string
 ) {
   try {
+    const hasPermission = await checkPermission(Permission.DELETE_RESERVATIONS);
+    if (!hasPermission) {
+      return {
+        success: false,
+        error: "You don't have permission to delete reservations",
+      };
+    }
+
     // Check if reservation exists and belongs to tenant
     const existingReservation = await prisma.reservation.findFirst({
       where: { id, tenantId },
@@ -312,6 +346,15 @@ export async function updateReservationStatus(
   tenantId: string
 ) {
   try {
+    // Check if user has permission to update reservations
+    const hasPermission = await checkPermission(Permission.UPDATE_RESERVATIONS);
+    if (!hasPermission) {
+      return {
+        success: false,
+        error: "You don't have permission to update reservation status",
+      };
+    }
+
     // Check if reservation exists and belongs to tenant
     const existingReservation = await prisma.reservation.findFirst({
       where: { id, tenantId },

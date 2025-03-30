@@ -44,6 +44,12 @@ export enum Permission {
   MANAGE_ROOMS = "manage_rooms", // Hotel
   MANAGE_APPOINTMENTS = "manage_appointments", // Salon/Service
   MANAGE_PRESCRIPTIONS = "manage_prescriptions", // Pharmacy
+
+  // Reservation management
+  VIEW_RESERVATIONS = "view_reservations",
+  CREATE_RESERVATIONS = "create_reservations",
+  UPDATE_RESERVATIONS = "update_reservations",
+  DELETE_RESERVATIONS = "delete_reservations",
 }
 
 // Define role hierarchy (higher roles inherit permissions from lower roles)

@@ -13,6 +13,10 @@ import { useDashboard } from "@/context/dashboard-provider";
 import { CalendarIcon, LayoutGrid, ListIcon, Plus } from "lucide-react";
 import { ReservationCalendar } from "./_components/view/reservation-calendar";
 import { ReservationTimeline } from "./_components/view/reservation-timeline";
+import { PermissionGate } from "@/components/shared/permission-gate";
+import { Permission } from "@/lib/permissions/role-permissions";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
 
 export default function ReservationsPage() {
   const { view, setView } = useReservation();
@@ -28,54 +32,79 @@ export default function ReservationsPage() {
             Manage your customer reservations and bookings
           </p>
         </div>
-        <Button onClick={() => setCreateDialogOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          New Reservation
-        </Button>
+
+        <PermissionGate
+          permission={Permission.CREATE_RESERVATIONS}
+          fallback={
+            <Button variant="outline" disabled>
+              <Plus className="h-4 w-4 mr-2" />
+              New Reservation
+            </Button>
+          }
+        >
+          <Button onClick={() => setCreateDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            New Reservation
+          </Button>
+        </PermissionGate>
       </div>
 
-      <ReservationFilters />
+      <PermissionGate
+        permission={Permission.VIEW_RESERVATIONS}
+        fallback={
+          <Alert variant="destructive" className="mt-4">
+            <AlertCircle className="h-4 w-4 mr-2" />
+            <AlertDescription>
+              You don&apos;t have permission to view reservations.
+            </AlertDescription>
+          </Alert>
+        }
+      >
+        <ReservationFilters />
 
-      <Tabs value={view} onValueChange={(v) => setView(v as any)}>
-        <TabsList>
-          <TabsTrigger value="table">
-            <ListIcon className="h-4 w-4 mr-2" />
-            List
-          </TabsTrigger>
-          <TabsTrigger value="board">
-            <LayoutGrid className="h-4 w-4 mr-2" />
-            Board
-          </TabsTrigger>
-          <TabsTrigger value="calendar">
-            <CalendarIcon className="h-4 w-4 mr-2" />
-            Calendar
-          </TabsTrigger>
-          <TabsTrigger value="timeline">
-            <CalendarIcon className="h-4 w-4 mr-2" />
-            Timeline
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="table" className="mt-4">
-          <ReservationTable />
-        </TabsContent>
-        <TabsContent value="board" className="mt-4">
-          <ReservationBoard />
-        </TabsContent>
-        <TabsContent value="calendar" className="mt-4">
-          <ReservationCalendar />
-        </TabsContent>
-        <TabsContent value="timeline" className="mt-4 overflow-auto">
-          <ReservationTimeline />
-        </TabsContent>
-      </Tabs>
+        <Tabs value={view} onValueChange={(v) => setView(v as any)}>
+          <TabsList>
+            <TabsTrigger value="table">
+              <ListIcon className="h-4 w-4 mr-2" />
+              List
+            </TabsTrigger>
+            <TabsTrigger value="board">
+              <LayoutGrid className="h-4 w-4 mr-2" />
+              Board
+            </TabsTrigger>
+            <TabsTrigger value="calendar">
+              <CalendarIcon className="h-4 w-4 mr-2" />
+              Calendar
+            </TabsTrigger>
+            <TabsTrigger value="timeline">
+              <CalendarIcon className="h-4 w-4 mr-2" />
+              Timeline
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="table" className="mt-4">
+            <ReservationTable />
+          </TabsContent>
+          <TabsContent value="board" className="mt-4">
+            <ReservationBoard />
+          </TabsContent>
+          <TabsContent value="calendar" className="mt-4">
+            <ReservationCalendar />
+          </TabsContent>
+          <TabsContent value="timeline" className="mt-4 overflow-auto">
+            <ReservationTimeline />
+          </TabsContent>
+        </Tabs>
+      </PermissionGate>
 
-      <ReservationDialog
-        open={createDialogOpen}
-        onOpenChange={setCreateDialogOpen}
-        businessType={businessType}
-        tenantId={tenantId || ""}
-        mode="create"
-      />
+      <PermissionGate permission={Permission.CREATE_RESERVATIONS}>
+        <ReservationDialog
+          open={createDialogOpen}
+          onOpenChange={setCreateDialogOpen}
+          businessType={businessType}
+          tenantId={tenantId || ""}
+          mode="create"
+        />
+      </PermissionGate>
     </div>
   );
 }
