@@ -77,6 +77,8 @@ export function ReservationBoard() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
+  console.log("ressource", resources);
+
   const sensors = useSensors(
     useSensor(MouseSensor, {
       activationConstraint: {
@@ -138,6 +140,8 @@ export function ReservationBoard() {
     {}
   );
 
+  console.log("resourceGroups", resourceGroups);
+
   // Add unassigned group
   const unassignedReservations = reservations.filter(
     (r) => !r.resourceId
@@ -148,8 +152,24 @@ export function ReservationBoard() {
 
     if (!over) return;
 
+    console.log("Drag end:", event);
+    console.log("Active:", active);
+    console.log("Over:", over.data.current);
+
     const reservationId = active.id as string;
-    const newResourceId = over.id as string;
+
+    // Extract the resource ID from the over data
+    let newResourceId;
+    if (over.data.current && over.data.current.resourceId) {
+      // If dropped on another reservation card, get its resource ID
+      newResourceId = over.data.current.resourceId;
+    } else {
+      // If dropped directly on a droppable area
+      newResourceId = over.id as string;
+    }
+
+    console.log("Reservation ID:", reservationId);
+    console.log("New Resource ID:", newResourceId);
 
     // Skip if dropped in the same place
     const reservation = reservations.find((r) => r.id === reservationId);
@@ -174,6 +194,8 @@ export function ReservationBoard() {
         newResourceId === "unassigned" ? "" : newResourceId,
         tenantId || ""
       );
+
+      console.log("Update result:", result);
 
       // Dismiss the loading toast
       toast.dismiss(loadingToast);
@@ -305,7 +327,6 @@ export function ReservationBoard() {
   }
 
   // Droppable area component
-  // Droppable area component
   function DroppableArea({
     id,
     children,
@@ -315,8 +336,8 @@ export function ReservationBoard() {
   }) {
     return (
       <div
-        id={id}
-        data-id={id} // Add this to ensure the ID is accessible for the drop
+        id={`droppable-${id}`}
+        data-droppable-id={id}
         className="min-h-[200px] bg-muted/20 rounded-lg p-3 space-y-2 border border-muted/30"
       >
         {children}
@@ -361,42 +382,40 @@ export function ReservationBoard() {
           </div>
 
           {/* Resource columns */}
-          {Object.entries(resourceGroups).map(
-            ([resourceId, { resource, reservations }]) => (
-              <div key={resourceId} className="space-y-4">
-                <h3 className="font-medium text-lg flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full bg-blue-500"></span>
-                  <MapPin className="h-4 w-4" />
-                  {resource.name}
-                  {resource.capacity && (
-                    <span className="text-xs text-muted-foreground">
-                      ({resource.capacity})
-                    </span>
-                  )}
-                </h3>
-                <DroppableArea id={resourceId}>
-                  {reservations.length === 0 ? (
-                    <div className="h-24 flex items-center justify-center text-muted-foreground border border-dashed rounded-md">
-                      No reservations
-                    </div>
-                  ) : (
-                    <SortableContext
-                      items={reservations.map((r) => r.id)}
-                      strategy={verticalListSortingStrategy}
-                    >
-                      {reservations.map((reservation) => (
-                        <SortableReservationItem
-                          key={reservation.id}
-                          reservation={reservation}
-                          resourceId={resourceId}
-                        />
-                      ))}
-                    </SortableContext>
-                  )}
-                </DroppableArea>
-              </div>
-            )
-          )}
+          {Object.values(resourceGroups).map(({ resource, reservations }) => (
+            <div key={resource.id} className="space-y-4">
+              <h3 className="font-medium text-lg flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full bg-blue-500"></span>
+                <MapPin className="h-4 w-4" />
+                {resource.name}
+                {resource.capacity && (
+                  <span className="text-xs text-muted-foreground">
+                    ({resource.capacity})
+                  </span>
+                )}
+              </h3>
+              <DroppableArea id={resource.id}>
+                {reservations.length === 0 ? (
+                  <div className="h-24 flex items-center justify-center text-muted-foreground border border-dashed rounded-md">
+                    No reservations
+                  </div>
+                ) : (
+                  <SortableContext
+                    items={reservations.map((r) => r.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    {reservations.map((reservation) => (
+                      <SortableReservationItem
+                        key={reservation.id}
+                        reservation={reservation}
+                        resourceId={resource.id}
+                      />
+                    ))}
+                  </SortableContext>
+                )}
+              </DroppableArea>
+            </div>
+          ))}
         </div>
       </DndContext>
 

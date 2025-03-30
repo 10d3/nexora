@@ -13,8 +13,6 @@ export async function getSite(tenantId: string) {
       throw new Error("Unauthorized");
     }
 
-    // const tenantId = session.user.tenantId;
-
     if (!tenantId) {
       throw new Error("No active tenant");
     }
@@ -38,10 +36,30 @@ export async function updateSite(formData: any, tenantId: string) {
       throw new Error("Unauthorized");
     }
 
-    // const tenantId = session.user.tenantId;
-
     if (!tenantId) {
       throw new Error("No active tenant");
+    }
+
+    // Check if the custom domain is already in use by another site
+    if (formData.customDomain) {
+      const existingDomain = await prisma.site.findUnique({
+        where: { customDomain: formData.customDomain },
+      });
+
+      if (existingDomain && existingDomain.tenantId !== tenantId) {
+        throw new Error("This custom domain is already in use");
+      }
+    }
+
+    // Check if the subdomain is already in use by another site
+    if (formData.subdomain) {
+      const existingSubdomain = await prisma.site.findUnique({
+        where: { subdomain: formData.subdomain },
+      });
+
+      if (existingSubdomain && existingSubdomain.tenantId !== tenantId) {
+        throw new Error("This subdomain is already in use");
+      }
     }
 
     // Check if site exists for this tenant
@@ -57,8 +75,8 @@ export async function updateSite(formData: any, tenantId: string) {
         where: { tenantId },
         data: {
           name: formData.name,
-          subdomain: formData.subdomain,
-          customDomain: formData.customDomain,
+          subdomain: formData.subdomain || null,
+          customDomain: formData.customDomain || null,
         },
       });
     } else {
@@ -66,8 +84,8 @@ export async function updateSite(formData: any, tenantId: string) {
       site = await prisma.site.create({
         data: {
           name: formData.name,
-          subdomain: formData.subdomain,
-          customDomain: formData.customDomain,
+          subdomain: formData.subdomain || null,
+          customDomain: formData.customDomain || null,
           tenantId,
         },
       });

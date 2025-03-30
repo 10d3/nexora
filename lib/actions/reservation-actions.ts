@@ -353,6 +353,7 @@ export async function updateReservationResource(
 
     // If resourceId is provided, verify that the table exists
     if (resourceId && resourceId !== "") {
+      // Check if the table exists directly using the resourceId
       const tableExists = await prisma.table.findUnique({
         where: { id: resourceId },
       });

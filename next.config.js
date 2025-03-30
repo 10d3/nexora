@@ -3,13 +3,15 @@ const nextConfig = {
     allowedDevOrigins: [
       "localhost:3000",
       "pos.localhost:3000",
-      "*.localhost:3000"
+      "*.localhost:3000",
+      "salon-p.localhost:3000",
     ],
     serverActions: {
       allowedOrigins: [
         "localhost:3000",
         "pos.localhost:3000",
-        "*.localhost:3000"
+        "*.localhost:3000",
+        "salon-p.localhost:3000"
       ],
     },
   },

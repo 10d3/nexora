@@ -237,6 +237,7 @@ model Settings {
   theme             String   @default("light")
   currency          String   @default("USD")
   taxRate           Float    @default(0)
+  message404        String?
   logoUrl           String?
   storeName         String?
   address           String?
@@ -576,7 +577,7 @@ model Reservation {
   customerEmail   String?
   partySize       Int
   reservationTime DateTime
-  endTime         DateTime?         // Add this field
+  endTime         DateTime? // Add this field
   specialRequests String?
 
   @@index([tenantId])
