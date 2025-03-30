@@ -66,9 +66,9 @@ export default async function middleware(req: NextRequest) {
     );
   }
 
-  //rewrites for marketing
+  // rewrite for marketing
   if (hostname == `marketing.${process.env.NEXT_PUBLIC_ROOT_DOMAIN}`) {
-    //get session
+    // Get the session
     const session = await getToken({ req, secret: process.env.AUTH_SECRET });
     console.log("session from middleware", session);
 

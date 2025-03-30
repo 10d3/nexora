@@ -72,9 +72,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           }
 
           // Parse credentials with schema
-          const { email, password } = await signInSchema.parseAsync(
-            credentials
-          );
+          const { email, password } =
+            await signInSchema.parseAsync(credentials);
 
           // Find user in database
           const user = await prisma.user.findUnique({
@@ -97,13 +96,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             return null;
           }
 
-          // Return user data
+          // Return user data - convert null to undefined for tenantId
           return {
             id: user.id,
             name: user.name,
             email: user.email,
             role: user.role,
-            tenantId: user.tenantId,
+            tenantId: user.tenantId || undefined, // Convert null to undefined
           };
         } catch (error) {
           console.error("Auth error:", error);
