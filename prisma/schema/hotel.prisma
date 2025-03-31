@@ -1,16 +1,17 @@
 model Room {
-    id        String     @id @default(cuid())
-    number    String
-    type      String // e.g., "Standard", "Deluxe", "Suite"
-    capacity  Int
-    rate      Float // Price per night
-    status    RoomStatus @default(AVAILABLE)
-    tenantId  String
-    tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-    orders    Order[]
-    bookings  Booking[]
-    createdAt DateTime   @default(now())
-    updatedAt DateTime   @updatedAt
+    id           String            @id @default(cuid())
+    number       String
+    type         String // e.g., "Standard", "Deluxe", "Suite"
+    capacity     Int
+    rate         Float // Price per night
+    status       RoomStatus        @default(AVAILABLE)
+    tenantId     String
+    tenant       Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+    orders       Order[]
+    bookings     Booking[]
+    housekeeping HousekeepingLog[]
+    createdAt    DateTime          @default(now())
+    updatedAt    DateTime          @updatedAt
 
     @@unique([number, tenantId]) // Room numbers should be unique per tenant
     @@index([tenantId])
@@ -62,4 +63,24 @@ model Booking {
     @@index([tenantId])
     @@index([status])
     @@index([checkIn, checkOut])
+}
+
+model HousekeepingLog {
+    id        String             @id @default(cuid())
+    roomId    String
+    room      Room               @relation(fields: [roomId], references: [id], onDelete: Cascade)
+    status    HousekeepingStatus @default(CLEAN)
+    notes     String?
+    tenantId  String
+    tenant    Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+    createdAt DateTime           @default(now())
+    updatedAt DateTime           @updatedAt
+}
+
+enum HousekeepingStatus {
+    CLEAN
+    DIRTY
+    IN_PROGRESS
+    INSPECTED
+    MAINTENANCE
 }

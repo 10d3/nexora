@@ -11,7 +11,7 @@ import { auth } from "../auth";
 export async function getAllTenants(
   includeSiteInfo?: boolean,
   tenantSlug?: string,
-  userId1?: string,
+  userId1?: string
 ) {
   let session;
 
@@ -25,6 +25,7 @@ export async function getAllTenants(
     console.error("No user ID found");
     return { allTenants: [], activeTenant: null, tenantsData: [] };
   }
+
   // 1. Tenants the user owns (direct relation)
   const ownedTenants = await prisma.tenant.findMany({
     where: {
@@ -40,13 +41,20 @@ export async function getAllTenants(
     },
   });
 
-  // 2. Tenants where the user is a member
+  // Get IDs of owned tenants to exclude them from member query
+  const ownedTenantIds = ownedTenants.map((tenant) => tenant.id);
+
+  // 2. Tenants where the user is a member (excluding owned tenants)
   const memberTenants = await prisma.tenant.findMany({
     where: {
       members: {
         some: {
           userId,
         },
+      },
+      // Exclude tenants that the user already owns
+      id: {
+        notIn: ownedTenantIds,
       },
     },
     include: {
@@ -74,6 +82,7 @@ export async function getAllTenants(
     })),
   ];
 
+  // Rest of the function remains the same
   if (allTenants.length === 0) {
     console.error("No tenants found for user:", userId);
     return { allTenants: [], activeTenant: null, tenantsData: [] };

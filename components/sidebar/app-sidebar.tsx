@@ -48,6 +48,8 @@ export function AppSidebar({
   activeTenantSlug,
   ...props
 }: AppSidebarProps) {
+
+  console.log('tenantData', tenantData)
   // Get navigation links based on business type
   const navItems = getNavLinks(businessType as BusinessType);
 

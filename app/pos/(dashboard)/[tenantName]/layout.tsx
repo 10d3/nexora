@@ -70,6 +70,10 @@ export default async function PosLayout({
       session.user.id as string
     );
 
+    console.log("allTenants is : ", allTenants);
+    console.log("activeTenant is : ", activeTenant);
+    console.log("tenantsData is : ", tenantsData);
+
     // If no tenants found, redirect to create tenant page
     if (allTenants.length === 0) {
       redirect("/create-tenant");

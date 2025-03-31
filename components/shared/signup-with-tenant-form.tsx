@@ -45,10 +45,10 @@ export default function SignupForm({
     try {
       // Sign up user with the authClient
       const formDataObj = new FormData();
-      formDataObj.append('name', name);
-      formDataObj.append('email', email);
-      formDataObj.append('password', password);
-      
+      formDataObj.append("name", name);
+      formDataObj.append("email", email);
+      formDataObj.append("password", password);
+
       const result = await signupUser(formDataObj);
       if (!result.success) {
         toast.error(result.message || "An error occurred during sign up");
@@ -75,9 +75,7 @@ export default function SignupForm({
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">
-            Create Your Account
-          </CardTitle>
+          <CardTitle className="text-2xl">Create Your Account</CardTitle>
           <CardDescription>
             Sign up to get started with our platform
           </CardDescription>
@@ -131,11 +129,7 @@ export default function SignupForm({
               </p>
             </div>
 
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={isLoading}
-            >
+            <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? "Creating Account..." : "Create Account"}
             </Button>
 

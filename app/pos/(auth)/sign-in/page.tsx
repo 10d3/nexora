@@ -1,121 +1,63 @@
-"use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { signIn } from "next-auth/react";
+import Link from "next/link"
+import { GalleryVerticalEnd } from "lucide-react"
+import SignInForm from "@/components/shared/singin-form"
 
-export default function SignIn() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-
-    try {
-      const result = await signIn("credentials", {
-        email,
-        password,
-        redirect: false,
-      });
-
-      if (result?.error) {
-        console.log(result.error);
-        setError(result.error || "An error occurred. Please try again.");
-      } else {
-        console.log(result);
-        // Redirect to dashboard after successful sign-in
-        router.push("/pos");
-        router.refresh();
-      }
-    } catch (err) {
-      setError("An unexpected error occurred. Please try again.");
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+export default function SignInPage() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center p-4">
-      <div className="w-full max-w-md space-y-8 rounded-lg border p-6 shadow-md">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold">Sign In</h1>
-          <p className="mt-2 text-sm text-gray-600">
-            Enter your credentials to access your account
-          </p>
+    <div className="flex min-h-screen">
+      {/* Left side - Illustration/Info */}
+      <div className="hidden lg:flex lg:w-1/2 bg-primary/10 flex-col justify-between p-12 relative overflow-hidden">
+        <div className="absolute inset-0 bg-primary/5 z-0">
+          <div className="absolute inset-0 bg-[url('/placeholder.svg?height=800&width=600')] bg-no-repeat bg-cover opacity-10"></div>
         </div>
 
-        {error && (
-          <div className="rounded-md bg-red-50 p-4 text-sm text-red-700">
-            {error}
-          </div>
-        )}
-
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div className="space-y-4 rounded-md">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium">
-                Email address
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                placeholder="Email address"
-              />
+        <div className="relative z-10">
+          <Link href="/" className="flex items-center gap-2 font-medium text-primary">
+            <div className="bg-primary text-primary-foreground flex size-8 items-center justify-center rounded-md">
+              <GalleryVerticalEnd className="size-5" />
             </div>
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium">
-                Password
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                placeholder="Password"
-              />
-            </div>
-          </div>
+            <span className="text-xl font-bold">Nexora Inc.</span>
+          </Link>
+        </div>
 
-          <div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="group relative flex w-full justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-            >
-              {loading ? "Signing in..." : "Sign in"}
-            </button>
-          </div>
-        </form>
-
-        <div className="mt-4 text-center text-sm">
-          <p>
-            Don&apos;t have an account?{" "}
-            <Link
-              href="/sign-up"
-              className="text-indigo-600 hover:text-indigo-500"
-            >
-              Sign up
-            </Link>
+        <div className="relative z-10 space-y-6">
+          <h1 className="text-4xl font-bold text-primary">Welcome Back</h1>
+          <p className="text-lg text-muted-foreground">
+            Sign in to access your dashboard and continue managing your business operations.
           </p>
+
+          <div className="bg-background/80 backdrop-blur-sm p-6 rounded-lg mt-8">
+            <h3 className="font-medium text-lg mb-2">Secure Access</h3>
+            <p className="text-muted-foreground">
+              Your business data is protected with enterprise-grade security. We use advanced encryption to keep your
+              information safe.
+            </p>
+          </div>
+        </div>
+
+        <div className="relative z-10 text-sm text-muted-foreground">
+          © {new Date().getFullYear()} Nexora Inc. All rights reserved.
+        </div>
+      </div>
+
+      {/* Right side - Form */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-6">
+        <div className="w-full max-w-md">
+          <div className="lg:hidden flex items-center justify-center mb-8">
+            <Link href="/" className="flex items-center gap-2 font-medium">
+              <div className="bg-primary text-primary-foreground flex size-8 items-center justify-center rounded-md">
+                <GalleryVerticalEnd className="size-5" />
+              </div>
+              <span className="text-xl font-bold">Nexora Inc.</span>
+            </Link>
+          </div>
+
+          <SignInForm />
         </div>
       </div>
     </div>
-  );
+  )
 }
+

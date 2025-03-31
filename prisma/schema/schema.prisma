@@ -39,6 +39,54 @@ enum BusinessType {
 }
 
 // Authentication models
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  emailVerified DateTime?
+  password      String
+  image         String?
+  role          Role      @default(ADMIN)
+  tenantId      String?
+  tenant        Tenant?   @relation("ActiveTenant", fields: [tenantId], references: [id], onDelete: SetNull) // Add relation name
+  tenants       Tenant[]  @relation("UserTenants")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  // Business relationships
+  orders       Order[]
+  appointments Appointment[]
+  members      Member[]
+  invitations  Invitation[]
+
+  // Credit relationship
+  creditAccount CreditAccount?
+
+  // Audit tracking
+  createdAuditLogs AuditLog[] @relation("CreatedBy")
+  updatedAuditLogs AuditLog[] @relation("UpdatedBy")
+
+  // Authentication relationships
+  accounts       Account[]
+  sessions       Session[]
+  authenticators Authenticator[]
+
+  // Subscription relationship
+  subscriptions UserSubscription[]
+
+  // pharmacy relationships
+  prescriptionsPrescribed Prescription[] @relation("prescribedBy")
+  prescriptionsReceived   Prescription[] @relation("patient")
+  // AuditLog                AuditLog[]
+  // AuditLog                AuditLog[]
+
+  @@index([tenantId])
+  @@index([email])
+  @@index([role])
+}
+
 model Account {
   id                String  @id @default(cuid())
   userId            String

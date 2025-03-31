@@ -16,6 +16,7 @@ model Medication {
     prescriptions        PrescriptionItem[]
     createdAt            DateTime           @default(now())
     updatedAt            DateTime           @updatedAt
+    Prescription         Prescription[]
 
     @@index([productId])
     @@index([tenantId])
@@ -25,24 +26,21 @@ model Medication {
 }
 
 model Prescription {
-    id            String             @id @default(cuid())
-    patientName   String
-    patientPhone  String?
-    patientEmail  String?
-    doctorName    String?
-    doctorContact String?
-    issueDate     DateTime
-    expiryDate    DateTime?
-    notes         String?
-    items         PrescriptionItem[]
-    tenantId      String
-    tenant        Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-    createdAt     DateTime           @default(now())
-    updatedAt     DateTime           @updatedAt
-
-    @@index([tenantId])
-    @@index([patientName])
-    @@index([issueDate, expiryDate])
+    id               String             @id @default(cuid())
+    medicationId     String
+    medication       Medication         @relation(fields: [medicationId], references: [id])
+    dosage           String
+    duration         Int
+    instructions     String?
+    prescribedById   String
+    prescribedBy     User               @relation("prescribedBy", fields: [prescribedById], references: [id])
+    patientId        String
+    patient          User               @relation("patient", fields: [patientId], references: [id])
+    tenantId         String
+    tenant           Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+    createdAt        DateTime           @default(now())
+    updatedAt        DateTime           @updatedAt
+    PrescriptionItem PrescriptionItem[]
 }
 
 model PrescriptionItem {
