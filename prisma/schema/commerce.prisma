@@ -1,0 +1,39 @@
+model Product {
+    id           String      @id @default(cuid())
+    name         String
+    description  String?
+    price        Float
+    stockQty     Int         @default(0)
+    sku          String?
+    barcode      String?     @unique
+    image        String?
+    isService    Boolean     @default(false) // For services, not physical products
+    duration     Int? // For services, duration in minutes
+    categoryId   String?
+    category     Category?   @relation(fields: [categoryId], references: [id])
+    departmentId String?
+    department   Department? @relation(fields: [departmentId], references: [id])
+    tenantId     String
+    tenant       Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+    createdAt    DateTime    @default(now())
+    updatedAt    DateTime    @updatedAt
+    deletedAt    DateTime?
+    createdBy    String?
+    updatedBy    String?
+
+    // Related entities
+    orderItems         OrderItem[]
+    inventory          Inventory[]
+    supplierProducts   SupplierProduct[]
+    staffServices      StaffService[]
+    medication         Medication?
+    promotionProducts  PromotionProduct[]
+    inventoryMovements InventoryMovement[]
+
+    @@unique([sku, tenantId]) // Ensure SKU is unique per tenant
+    @@index([tenantId])
+    @@index([categoryId])
+    @@index([departmentId])
+    @@index([name])
+    @@index([isService])
+}

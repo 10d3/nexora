@@ -1,0 +1,74 @@
+// Retail specific models
+model Inventory {
+    id          String    @id @default(cuid())
+    productId   String
+    product     Product   @relation(fields: [productId], references: [id])
+    location    String?
+    batchNumber String?
+    expiryDate  DateTime?
+    costPrice   Float?
+    tenantId    String
+    tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+    createdAt   DateTime  @default(now())
+    updatedAt   DateTime  @updatedAt
+
+    @@index([productId])
+    @@index([tenantId])
+    @@index([expiryDate])
+}
+
+model InventoryMovement {
+    id        String                @id @default(cuid())
+    productId String
+    product   Product               @relation(fields: [productId], references: [id])
+    quantity  Int
+    type      InventoryMovementType
+    reference String? // Order ID, adjustment ID, etc.
+    notes     String?
+    tenantId  String
+    tenant    Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+    createdAt DateTime              @default(now())
+    createdBy String?
+    updatedAt DateTime              @updatedAt
+
+    @@index([productId])
+    @@index([tenantId])
+    @@index([type])
+    @@index([createdAt])
+}
+
+model Supplier {
+    id          String            @id @default(cuid())
+    name        String
+    contactName String?
+    email       String?
+    phone       String?
+    address     String?
+    products    SupplierProduct[]
+    tenantId    String
+    tenant      Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+    createdAt   DateTime          @default(now())
+    updatedAt   DateTime          @updatedAt
+
+    @@index([tenantId])
+    @@index([name])
+}
+
+model SupplierProduct {
+    id           String   @id @default(cuid())
+    supplierId   String
+    supplier     Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+    productId    String
+    product      Product  @relation(fields: [productId], references: [id])
+    costPrice    Float
+    leadTime     Int? // In days
+    minimumOrder Int?
+    tenantId     String
+    tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+    createdAt    DateTime @default(now())
+    updatedAt    DateTime @updatedAt
+
+    @@index([supplierId])
+    @@index([productId])
+    @@index([tenantId])
+}

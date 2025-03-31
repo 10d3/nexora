@@ -1,0 +1,66 @@
+// Pharmacy specific models
+model Medication {
+    id                   String             @id @default(cuid())
+    name                 String
+    genericName          String?
+    dosage               String?
+    form                 String? // Tablet, Capsule, Liquid, etc.
+    manufacturer         String?
+    requiresPrescription Boolean            @default(false)
+    sideEffects          String?
+    storage              String?
+    productId            String             @unique
+    product              Product            @relation(fields: [productId], references: [id])
+    tenantId             String
+    tenant               Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+    prescriptions        PrescriptionItem[]
+    createdAt            DateTime           @default(now())
+    updatedAt            DateTime           @updatedAt
+
+    @@index([productId])
+    @@index([tenantId])
+    @@index([name])
+    @@index([genericName])
+    @@index([requiresPrescription])
+}
+
+model Prescription {
+    id            String             @id @default(cuid())
+    patientName   String
+    patientPhone  String?
+    patientEmail  String?
+    doctorName    String?
+    doctorContact String?
+    issueDate     DateTime
+    expiryDate    DateTime?
+    notes         String?
+    items         PrescriptionItem[]
+    tenantId      String
+    tenant        Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+    createdAt     DateTime           @default(now())
+    updatedAt     DateTime           @updatedAt
+
+    @@index([tenantId])
+    @@index([patientName])
+    @@index([issueDate, expiryDate])
+}
+
+model PrescriptionItem {
+    id             String       @id @default(cuid())
+    prescriptionId String
+    prescription   Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+    medicationId   String
+    medication     Medication   @relation(fields: [medicationId], references: [id])
+    dosage         String?
+    frequency      String?
+    duration       String?
+    quantity       Int
+    tenantId       String
+    tenant         Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+    createdAt      DateTime     @default(now())
+    updatedAt      DateTime     @updatedAt
+
+    @@index([prescriptionId])
+    @@index([medicationId])
+    @@index([tenantId])
+}

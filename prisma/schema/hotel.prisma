@@ -1,0 +1,65 @@
+model Room {
+    id        String     @id @default(cuid())
+    number    String
+    type      String // e.g., "Standard", "Deluxe", "Suite"
+    capacity  Int
+    rate      Float // Price per night
+    status    RoomStatus @default(AVAILABLE)
+    tenantId  String
+    tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+    orders    Order[]
+    bookings  Booking[]
+    createdAt DateTime   @default(now())
+    updatedAt DateTime   @updatedAt
+
+    @@unique([number, tenantId]) // Room numbers should be unique per tenant
+    @@index([tenantId])
+    @@index([status])
+}
+
+// Hotel specific models
+model Guest {
+    id        String    @id @default(cuid())
+    firstName String
+    lastName  String
+    email     String?
+    phone     String?
+    address   String?
+    idType    String? // Passport, ID card, etc.
+    idNumber  String?
+    bookings  Booking[]
+    tenantId  String
+    tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @updatedAt
+
+    @@index([tenantId])
+    @@index([email])
+    @@index([phone])
+    @@index([lastName, firstName])
+}
+
+model Booking {
+    id          String        @id @default(cuid())
+    checkIn     DateTime
+    checkOut    DateTime
+    adults      Int           @default(1)
+    children    Int           @default(0)
+    status      BookingStatus @default(CONFIRMED)
+    totalAmount Float
+    paidAmount  Float         @default(0)
+    guestId     String
+    guest       Guest         @relation(fields: [guestId], references: [id])
+    roomId      String
+    room        Room          @relation(fields: [roomId], references: [id])
+    tenantId    String
+    tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+    createdAt   DateTime      @default(now())
+    updatedAt   DateTime      @updatedAt
+
+    @@index([guestId])
+    @@index([roomId])
+    @@index([tenantId])
+    @@index([status])
+    @@index([checkIn, checkOut])
+}

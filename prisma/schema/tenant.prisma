@@ -1,0 +1,216 @@
+// Multi-tenant models
+model Site {
+    id           String   @id @default(cuid())
+    name         String
+    subdomain    String?  @unique
+    customDomain String?  @unique
+    tenantId     String   @unique
+    tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+    createdAt    DateTime @default(now())
+    updatedAt    DateTime @updatedAt
+}
+
+model Tenant {
+    id             String       @id @default(cuid())
+    name           String
+    slug           String       @unique
+    businessType   BusinessType @default(RETAIL)
+    description    String?
+    subscriptionId String?
+    createdAt      DateTime     @default(now())
+    updatedAt      DateTime     @updatedAt
+    deletedAt      DateTime?
+
+    // User relationships
+    users       User[]       @relation("UserTenants")
+    activeUsers User[]       @relation("ActiveTenant")
+    members     Member[]
+    invitations Invitation[]
+
+    // Product relationships
+    products          Product[]
+    categories        Category[]
+    inventory         Inventory[]
+    suppliers         Supplier[]
+    supplierProducts  SupplierProduct[]
+    departments       Department[]
+    promotions        Promotion[]
+    promotionProducts PromotionProduct[]
+
+    // Order relationships
+    orders Order[]
+
+    // Restaurant relationships
+    tables       Table[]
+    menuItems    MenuItem[]
+    reservations Reservation[]
+
+    // Hotel relationships
+    rooms    Room[]
+    guests   Guest[]
+    bookings Booking[]
+
+    // Service relationships
+    appointments      Appointment[]
+    staff             Staff[]
+    staffServices     StaffService[]
+    staffAppointments StaffAppointment[]
+
+    // Pharmacy relationships
+    medications       Medication[]
+    prescriptions     Prescription[]
+    prescriptionItems PrescriptionItem[]
+
+    // Credit system relationships
+    creditAccounts     CreditAccount[]
+    creditTransactions CreditTransaction[]
+
+    // Audit and inventory tracking
+    auditLogs          AuditLog[]
+    inventoryMovements InventoryMovement[]
+    refunds            Refund[]
+
+    // Settings
+    settings Settings?
+
+    // Site relationship
+    site Site?
+
+    @@index([businessType])
+}
+
+model Member {
+    id        String   @id @default(cuid())
+    tenantId  String
+    tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+    userId    String
+    user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+    role      String
+    createdAt DateTime @default(now())
+
+    @@index([tenantId])
+    @@index([userId])
+    @@map("member")
+}
+
+model Invitation {
+    id        String   @id @default(cuid())
+    tenantId  String
+    tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+    email     String
+    role      String?
+    status    String
+    expiresAt DateTime
+    inviterId String
+    user      User     @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+
+    @@index([tenantId])
+    @@index([inviterId])
+    @@index([email])
+    @@map("invitation")
+}
+
+model User {
+    id            String    @id @default(cuid())
+    name          String
+    email         String    @unique
+    emailVerified DateTime?
+    password      String
+    image         String?
+    role          Role      @default(ADMIN)
+    tenantId      String?
+    tenant        Tenant?   @relation("ActiveTenant", fields: [tenantId], references: [id], onDelete: SetNull) // Add relation name
+    tenants       Tenant[]  @relation("UserTenants")
+    createdAt     DateTime  @default(now())
+    updatedAt     DateTime  @updatedAt
+    deletedAt     DateTime?
+
+    // Business relationships
+    orders       Order[]
+    appointments Appointment[]
+    members      Member[]
+    invitations  Invitation[]
+
+    // Credit relationship
+    creditAccount CreditAccount?
+
+    // Audit tracking
+    createdAuditLogs AuditLog[] @relation("CreatedBy")
+    updatedAuditLogs AuditLog[] @relation("UpdatedBy")
+
+    // Authentication relationships
+    accounts       Account[]
+    sessions       Session[]
+    authenticators Authenticator[]
+
+    // Subscription relationship
+    subscriptions UserSubscription[]
+
+    @@index([tenantId])
+    @@index([email])
+    @@index([role])
+}
+
+model SubscriptionPlan {
+    id                String             @id @default(cuid())
+    name              String
+    description       String?
+    price             Float
+    billingCycle      BillingCycle       @default(MONTHLY)
+    maxTenants        Int                @default(1)
+    maxUsers          Int                @default(5)
+    maxProducts       Int? // null means unlimited
+    maxOrders         Int? // null means unlimited
+    features          Json? // Store additional features as JSON
+    isActive          Boolean            @default(true)
+    createdAt         DateTime           @default(now())
+    updatedAt         DateTime           @updatedAt
+    userSubscriptions UserSubscription[]
+
+    @@index([isActive])
+}
+
+model UserSubscription {
+    id               String             @id @default(cuid())
+    userId           String
+    user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+    planId           String
+    plan             SubscriptionPlan   @relation(fields: [planId], references: [id])
+    startDate        DateTime
+    endDate          DateTime?
+    status           SubscriptionStatus @default(ACTIVE)
+    autoRenew        Boolean            @default(true)
+    paymentMethod    String?
+    lastPaymentDate  DateTime?
+    nextPaymentDate  DateTime?
+    cancellationDate DateTime?
+    createdAt        DateTime           @default(now())
+    updatedAt        DateTime           @updatedAt
+
+    @@index([userId])
+    @@index([planId])
+    @@index([status])
+}
+
+model Settings {
+    id                String   @id @default(cuid())
+    theme             String   @default("light")
+    currency          String   @default("USD")
+    taxRate           Float    @default(0)
+    message404        String?
+    logoUrl           String?
+    storeName         String?
+    address           String?
+    phoneNumber       String?
+    email             String?
+    businessHours     Json? // Store opening/closing hours
+    tableManagement   Boolean? @default(false) // For restaurants
+    roomManagement    Boolean? @default(false) // For hotels
+    appointmentSystem Boolean? @default(false) // For services, salons
+    tenantId          String   @unique
+    tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+    createdAt         DateTime @default(now())
+    updatedAt         DateTime @updatedAt
+
+    @@index([tenantId])
+}

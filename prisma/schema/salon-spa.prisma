@@ -1,0 +1,74 @@
+// Service industry specific models (Salon, Spa, etc.)
+model Appointment {
+    id                String             @id @default(cuid())
+    startTime         DateTime
+    endTime           DateTime
+    status            AppointmentStatus  @default(SCHEDULED)
+    customerId        String
+    user              User               @relation(fields: [customerId], references: [id])
+    serviceId         String? // Can be linked to a Product with isService=true
+    notes             String?
+    tenantId          String
+    tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+    staffAppointments StaffAppointment[]
+    createdAt         DateTime           @default(now())
+    updatedAt         DateTime           @updatedAt
+
+    @@index([tenantId])
+    @@index([customerId])
+    @@index([status])
+    @@index([startTime, endTime])
+}
+
+// Salon/Spa specific models
+model Staff {
+    id             String             @id @default(cuid())
+    name           String
+    email          String?
+    phone          String?
+    specialization String?
+    bio            String?
+    image          String?
+    services       StaffService[]
+    appointments   StaffAppointment[]
+    tenantId       String
+    tenant         Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+    createdAt      DateTime           @default(now())
+    updatedAt      DateTime           @updatedAt
+
+    @@index([tenantId])
+    @@index([name])
+    @@index([email])
+}
+
+model StaffService {
+    id        String   @id @default(cuid())
+    staffId   String
+    staff     Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+    serviceId String
+    service   Product  @relation(fields: [serviceId], references: [id])
+    tenantId  String
+    tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@index([staffId])
+    @@index([serviceId])
+    @@index([tenantId])
+}
+
+model StaffAppointment {
+    id            String      @id @default(cuid())
+    staffId       String
+    staff         Staff       @relation(fields: [staffId], references: [id], onDelete: Cascade)
+    appointmentId String
+    appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+    tenantId      String
+    tenant        Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+    createdAt     DateTime    @default(now())
+    updatedAt     DateTime    @updatedAt
+
+    @@index([staffId])
+    @@index([appointmentId])
+    @@index([tenantId])
+}

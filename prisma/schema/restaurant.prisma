@@ -1,0 +1,61 @@
+// Restaurant and Hotel specific models
+model Table {
+    id           String        @id @default(cuid())
+    number       String
+    capacity     Int
+    status       TableStatus   @default(AVAILABLE)
+    tenantId     String
+    tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+    orders       Order[]
+    reservations Reservation[]
+    createdAt    DateTime      @default(now())
+    updatedAt    DateTime      @updatedAt
+
+    @@unique([number, tenantId]) // Table numbers should be unique per tenant
+    @@index([tenantId])
+    @@index([status])
+}
+
+model Reservation {
+    id              String            @id @default(cuid())
+    tenantId        String
+    tenant          Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+    createdAt       DateTime          @default(now())
+    updatedAt       DateTime          @updatedAt
+    status          ReservationStatus @default(PENDING)
+    tableId         String?
+    table           Table?            @relation(fields: [tableId], references: [id])
+    customerName    String
+    customerPhone   String?
+    customerEmail   String?
+    partySize       Int
+    reservationTime DateTime
+    endTime         DateTime? // Add this field
+    specialRequests String?
+
+    @@index([tenantId])
+    @@index([tableId])
+}
+
+// Restaurant specific models
+model MenuItem {
+    id              String    @id @default(cuid())
+    name            String
+    description     String?
+    price           Float
+    image           String?
+    ingredients     String?
+    preparationTime Int? // In minutes
+    isAvailable     Boolean   @default(true)
+    categoryId      String?
+    category        Category? @relation(fields: [categoryId], references: [id])
+    tenantId        String
+    tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+    createdAt       DateTime  @default(now())
+    updatedAt       DateTime  @updatedAt
+
+    @@index([categoryId])
+    @@index([tenantId])
+    @@index([name])
+    @@index([isAvailable])
+}

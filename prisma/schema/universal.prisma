@@ -1,0 +1,67 @@
+model Category {
+    id          String     @id @default(cuid())
+    name        String
+    description String?
+    tenantId    String
+    tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+    products    Product[]
+    menuItems   MenuItem[]
+    createdAt   DateTime   @default(now())
+    updatedAt   DateTime   @updatedAt
+
+    @@index([tenantId])
+    @@index([name])
+}
+
+model Order {
+    id                String             @id @default(cuid())
+    orderNumber       String             @unique
+    status            OrderStatus        @default(PENDING)
+    total             Float
+    tax               Float              @default(0)
+    discount          Float              @default(0)
+    paymentType       PaymentType        @default(CASH)
+    orderType         OrderType          @default(STANDARD) // Different order types based on business
+    tableId           String? // For restaurants
+    table             Table?             @relation(fields: [tableId], references: [id])
+    roomId            String? // For hotels
+    room              Room?              @relation(fields: [roomId], references: [id])
+    userId            String
+    user              User               @relation(fields: [userId], references: [id])
+    tenantId          String
+    tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+    orderItems        OrderItem[]
+    creditTransaction CreditTransaction?
+    refunds           Refund[]
+    createdAt         DateTime           @default(now())
+    updatedAt         DateTime           @updatedAt
+    completedAt       DateTime?
+    completedBy       String?
+    completedReason   String?
+    deletedBy         String?
+    deletedAt         DateTime?
+
+    @@index([tenantId])
+    @@index([userId])
+    @@index([tableId])
+    @@index([roomId])
+    @@index([tenantId, createdAt]) // Index for sorting by createdAt
+    @@index([status])
+    @@index([orderNumber])
+}
+
+model OrderItem {
+    id        String   @id @default(cuid())
+    quantity  Int
+    price     Float
+    notes     String?
+    productId String
+    product   Product  @relation(fields: [productId], references: [id])
+    orderId   String
+    order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@index([productId])
+    @@index([orderId])
+}

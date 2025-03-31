@@ -1,0 +1,51 @@
+// Supermarket specific models
+model Department {
+    id            String    @id @default(cuid())
+    name          String
+    description   String?
+    floorLocation String?
+    manager       String?
+    products      Product[] // Products in this department
+    tenantId      String
+    tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+    createdAt     DateTime  @default(now())
+    updatedAt     DateTime  @updatedAt
+
+    @@index([tenantId])
+    @@index([name])
+}
+
+model Promotion {
+    id            String             @id @default(cuid())
+    name          String
+    description   String?
+    startDate     DateTime
+    endDate       DateTime
+    discountType  DiscountType       @default(PERCENTAGE)
+    discountValue Float
+    products      PromotionProduct[]
+    tenantId      String
+    tenant        Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+    createdAt     DateTime           @default(now())
+    updatedAt     DateTime           @updatedAt
+
+    @@index([tenantId])
+    @@index([startDate, endDate])
+    @@index([discountType])
+}
+
+model PromotionProduct {
+    id          String    @id @default(cuid())
+    promotionId String
+    promotion   Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+    productId   String
+    product     Product   @relation(fields: [productId], references: [id])
+    tenantId    String
+    tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+    createdAt   DateTime  @default(now())
+    updatedAt   DateTime  @updatedAt
+
+    @@index([promotionId])
+    @@index([productId])
+    @@index([tenantId])
+}
