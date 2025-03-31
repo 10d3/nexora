@@ -1,7 +1,6 @@
 "use client";
 
 import { HardHat, Truck, CloudSun, Clock } from "lucide-react";
-// import { DataCard } from "@/components/ui/data-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -15,218 +14,94 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { DataCard } from "../shared/data-card";
 import { InteractiveAreaChart } from "@/components/chart/area-chart";
-// import { InteractiveAreaChart } from "@/components/charts/area-chart";
-
-// Sample data
-const projectStatus = [
-  {
-    name: "Downtown Office",
-    progress: 75,
-    deadline: "Dec 15, 2023",
-    status: "on-track",
-  },
-  {
-    name: "Riverside Apartments",
-    progress: 45,
-    deadline: "Feb 28, 2024",
-    status: "delayed",
-  },
-  {
-    name: "Shopping Mall",
-    progress: 90,
-    deadline: "Nov 30, 2023",
-    status: "on-track",
-  },
-  {
-    name: "Highway Bridge",
-    progress: 30,
-    deadline: "Apr 15, 2024",
-    status: "at-risk",
-  },
-];
-
-const equipmentUtilization = [
-  {
-    name: "Excavators",
-    utilization: 85,
-    maintenance: "Nov 15, 2023",
-    status: "operational",
-  },
-  {
-    name: "Bulldozers",
-    utilization: 70,
-    maintenance: "Nov 5, 2023",
-    status: "operational",
-  },
-  {
-    name: "Cranes",
-    utilization: 60,
-    maintenance: "Oct 30, 2023",
-    status: "maintenance",
-  },
-  {
-    name: "Concrete Mixers",
-    utilization: 90,
-    maintenance: "Dec 10, 2023",
-    status: "operational",
-  },
-];
-
-const materialInventory = [
-  {
-    name: "Cement",
-    quantity: "120 tons",
-    reorder: "30 tons",
-    status: "adequate",
-  },
-  {
-    name: "Steel Rebar",
-    quantity: "45 tons",
-    reorder: "15 tons",
-    status: "low",
-  },
-  {
-    name: "Bricks",
-    quantity: "8,500 units",
-    reorder: "2,000 units",
-    status: "adequate",
-  },
-  {
-    name: "Lumber",
-    quantity: "350 boards",
-    reorder: "100 boards",
-    status: "low",
-  },
-];
-
-const laborAllocation = [
-  {
-    date: "2023-06-01",
-    carpenters: 12,
-    masons: 8,
-    electricians: 6,
-    plumbers: 4,
-  },
-  {
-    date: "2023-06-08",
-    carpenters: 8,
-    masons: 10,
-    electricians: 4,
-    plumbers: 6,
-  },
-  {
-    date: "2023-06-15",
-    carpenters: 15,
-    masons: 12,
-    electricians: 10,
-    plumbers: 8,
-  },
-  {
-    date: "2023-06-22",
-    carpenters: 6,
-    masons: 15,
-    electricians: 3,
-    plumbers: 2,
-  },
-];
-
-const weatherForecast = [
-  {
-    day: "Today",
-    condition: "Sunny",
-    temp: "75°F",
-    precipitation: "0%",
-    wind: "5 mph",
-  },
-  {
-    day: "Tomorrow",
-    condition: "Partly Cloudy",
-    temp: "72°F",
-    precipitation: "10%",
-    wind: "8 mph",
-  },
-  {
-    day: "Wednesday",
-    condition: "Rainy",
-    temp: "65°F",
-    precipitation: "80%",
-    wind: "12 mph",
-  },
-  {
-    day: "Thursday",
-    condition: "Cloudy",
-    temp: "68°F",
-    precipitation: "30%",
-    wind: "10 mph",
-  },
-  {
-    day: "Friday",
-    condition: "Sunny",
-    temp: "78°F",
-    precipitation: "0%",
-    wind: "6 mph",
-  },
-];
-
-const projectTimeline = [
-  {
-    phase: "Planning",
-    startDate: "Aug 1, 2023",
-    endDate: "Sep 15, 2023",
-    status: "completed",
-  },
-  {
-    phase: "Foundation",
-    startDate: "Sep 16, 2023",
-    endDate: "Oct 30, 2023",
-    status: "completed",
-  },
-  {
-    phase: "Framing",
-    startDate: "Nov 1, 2023",
-    endDate: "Dec 15, 2023",
-    status: "in-progress",
-  },
-  {
-    phase: "Electrical & Plumbing",
-    startDate: "Dec 16, 2023",
-    endDate: "Jan 30, 2024",
-    status: "pending",
-  },
-  {
-    phase: "Finishing",
-    startDate: "Feb 1, 2024",
-    endDate: "Mar 15, 2024",
-    status: "pending",
-  },
-];
+import { useConstructionStats } from "@/hooks/use-construction";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function ConstructionDashboard() {
+  const { data, isLoading, error } = useConstructionStats();
+
+  console.log(data);
+
+  // Calculate summary metrics
+  const activeProjects = data?.projects.length || 0;
+  const nearingCompletion =
+    data?.projects.filter((p) => p.progress > 80).length || 0;
+
+  const avgEquipmentUtilization = data?.equipment.length
+    ? Math.round(
+        data.equipment.reduce((sum, eq) => sum + eq.utilization, 0) /
+          data.equipment.length
+      )
+    : 0;
+
+  // Calculate total labor hours (assuming 8 hours per worker per day)
+  const totalLaborHours =
+    data?.laborData.reduce((sum, day) => {
+      const dailyTotal =
+        (day.carpenters + day.masons + day.electricians + day.plumbers) * 8;
+      return sum + dailyTotal;
+    }, 0) || 0;
+
+  // Weather impact from the data
+  const weatherImpact = data?.weatherData.impact || "Unknown";
+
+  if (error) {
+    return (
+      <div className="p-4">
+        Error loading construction data: {error.message}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <DataCard
           title="Active Projects"
-          value="8"
-          description="2 nearing completion"
+          value={
+            isLoading ? (
+              <Skeleton className="h-6 w-16" />
+            ) : (
+              activeProjects.toString()
+            )
+          }
+          description={
+            isLoading ? "" : `${nearingCompletion} nearing completion`
+          }
           icon={<HardHat className="h-4 w-4" />}
         />
         <DataCard
           title="Equipment Utilization"
-          value="75%"
-          description="↑ 5% from last month"
+          value={
+            isLoading ? (
+              <Skeleton className="h-6 w-16" />
+            ) : (
+              `${avgEquipmentUtilization}%`
+            )
+          }
+          description={isLoading ? "" : "Average across all equipment"}
           icon={<Truck className="h-4 w-4" />}
         />
         <DataCard
           title="Labor Hours"
-          value="4,250"
+          value={
+            isLoading ? (
+              <Skeleton className="h-6 w-16" />
+            ) : (
+              totalLaborHours.toLocaleString()
+            )
+          }
           description="This month"
           icon={<Clock className="h-4 w-4" />}
         />
         <DataCard
           title="Weather Impact"
-          value="Low"
-          description="Clear forecast for 3 days"
+          value={isLoading ? <Skeleton className="h-6 w-16" /> : weatherImpact}
+          description={
+            isLoading
+              ? ""
+              : `Forecast available for ${data?.weatherData.forecast.length || 0} days`
+          }
           icon={<CloudSun className="h-4 w-4" />}
         />
       </div>
@@ -237,45 +112,57 @@ export function ConstructionDashboard() {
             <CardTitle>Project Status</CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Project</TableHead>
-                  <TableHead>Progress</TableHead>
-                  <TableHead>Deadline</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {projectStatus.map((project, index) => (
-                  <TableRow key={index}>
-                    <TableCell>{project.name}</TableCell>
-                    <TableCell>
-                      <div className="flex w-full items-center gap-2">
-                        <Progress value={project.progress} className="h-2" />
-                        <span className="text-xs text-muted-foreground">
-                          {project.progress}%
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell>{project.deadline}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          project.status === "on-track"
-                            ? "default"
-                            : project.status === "delayed"
-                              ? "secondary"
-                              : "destructive"
-                        }
-                      >
-                        {project.status}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
+            {isLoading ? (
+              <div className="space-y-2">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="flex justify-between">
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-4 w-20" />
+                  </div>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Project</TableHead>
+                    <TableHead>Progress</TableHead>
+                    <TableHead>Deadline</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data?.projects.map((project) => (
+                    <TableRow key={project.id}>
+                      <TableCell>{project.name}</TableCell>
+                      <TableCell>
+                        <div className="flex w-full items-center gap-2">
+                          <Progress value={project.progress} className="h-2" />
+                          <span className="text-xs text-muted-foreground">
+                            {project.progress}%
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>{project.deadline}</TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={
+                            project.status === "on-track"
+                              ? "default"
+                              : project.status === "delayed"
+                                ? "secondary"
+                                : "destructive"
+                          }
+                        >
+                          {project.status}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
 
@@ -284,46 +171,55 @@ export function ConstructionDashboard() {
             <CardTitle>Equipment Utilization</CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Equipment</TableHead>
-                  <TableHead>Utilization</TableHead>
-                  <TableHead>Next Maintenance</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {equipmentUtilization.map((equipment, index) => (
-                  <TableRow key={index}>
-                    <TableCell>{equipment.name}</TableCell>
-                    <TableCell>
-                      <div className="flex w-full items-center gap-2">
-                        <Progress
-                          value={equipment.utilization}
-                          className="h-2"
-                        />
-                        <span className="text-xs text-muted-foreground">
-                          {equipment.utilization}%
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell>{equipment.maintenance}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          equipment.status === "operational"
-                            ? "default"
-                            : "secondary"
-                        }
-                      >
-                        {equipment.status}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
+            {isLoading ? (
+              <div className="space-y-2">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="flex justify-between">
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-4 w-20" />
+                  </div>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Equipment</TableHead>
+                    <TableHead>Utilization</TableHead>
+                    <TableHead>Next Maintenance</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data?.equipment.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell>{item.name}</TableCell>
+                      <TableCell>
+                        <div className="flex w-full items-center gap-2">
+                          <Progress value={item.utilization} className="h-2" />
+                          <span className="text-xs text-muted-foreground">
+                            {item.utilization}%
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>{item.maintenance}</TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={
+                            item.status === "operational"
+                              ? "default"
+                              : "secondary"
+                          }
+                        >
+                          {item.status}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -334,50 +230,62 @@ export function ConstructionDashboard() {
             <CardTitle>Material Inventory</CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Material</TableHead>
-                  <TableHead>Quantity</TableHead>
-                  <TableHead>Reorder Point</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {materialInventory.map((material, index) => (
-                  <TableRow key={index}>
-                    <TableCell>{material.name}</TableCell>
-                    <TableCell>{material.quantity}</TableCell>
-                    <TableCell>{material.reorder}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          material.status === "adequate"
-                            ? "default"
-                            : "secondary"
-                        }
-                      >
-                        {material.status}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
+            {isLoading ? (
+              <div className="space-y-2">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="flex justify-between">
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-4 w-16" />
+                    <Skeleton className="h-4 w-20" />
+                  </div>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Material</TableHead>
+                    <TableHead>Quantity</TableHead>
+                    <TableHead>Reorder Point</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data?.materials.map((material) => (
+                    <TableRow key={material.id}>
+                      <TableCell>{material.name}</TableCell>
+                      <TableCell>{material.quantity}</TableCell>
+                      <TableCell>{material.reorder}</TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={
+                            material.status === "adequate"
+                              ? "default"
+                              : "secondary"
+                          }
+                        >
+                          {material.status}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
 
         <InteractiveAreaChart
           title="Labor Allocation"
           description="Worker distribution by trade"
-          data={laborAllocation}
+          data={data?.laborData || []}
           dataKeys={["carpenters", "masons", "electricians", "plumbers"]}
           timeRangeOptions={[
             { value: "1m", label: "Last month", days: 30 },
             { value: "3m", label: "Last 3 months", days: 90 },
           ]}
-          isLoading={false}
-          error={null}
+          isLoading={isLoading}
+          error={error}
         />
       </div>
 
@@ -387,28 +295,41 @@ export function ConstructionDashboard() {
             <CardTitle>Weather Forecast</CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Day</TableHead>
-                  <TableHead>Condition</TableHead>
-                  <TableHead>Temperature</TableHead>
-                  <TableHead>Precipitation</TableHead>
-                  <TableHead>Wind</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {weatherForecast.map((day, index) => (
-                  <TableRow key={index}>
-                    <TableCell>{day.day}</TableCell>
-                    <TableCell>{day.condition}</TableCell>
-                    <TableCell>{day.temp}</TableCell>
-                    <TableCell>{day.precipitation}</TableCell>
-                    <TableCell>{day.wind}</TableCell>
-                  </TableRow>
+            {isLoading ? (
+              <div className="space-y-2">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="flex justify-between">
+                    <Skeleton className="h-4 w-16" />
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-4 w-16" />
+                    <Skeleton className="h-4 w-16" />
+                  </div>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Day</TableHead>
+                    <TableHead>Condition</TableHead>
+                    <TableHead>Temperature</TableHead>
+                    <TableHead>Precipitation</TableHead>
+                    <TableHead>Wind</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data?.weatherData.forecast.map((day, index) => (
+                    <TableRow key={index}>
+                      <TableCell>{day.day}</TableCell>
+                      <TableCell>{day.condition}</TableCell>
+                      <TableCell>{day.temperature}</TableCell>
+                      <TableCell>{day.precipitation}</TableCell>
+                      <TableCell>{day.wind}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
 
@@ -417,38 +338,51 @@ export function ConstructionDashboard() {
             <CardTitle>Project Timeline</CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Phase</TableHead>
-                  <TableHead>Start Date</TableHead>
-                  <TableHead>End Date</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {projectTimeline.map((phase, index) => (
-                  <TableRow key={index}>
-                    <TableCell>{phase.phase}</TableCell>
-                    <TableCell>{phase.startDate}</TableCell>
-                    <TableCell>{phase.endDate}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          phase.status === "completed"
-                            ? "default"
-                            : phase.status === "in-progress"
-                              ? "secondary"
-                              : "outline"
-                        }
-                      >
-                        {phase.status}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
+            {isLoading ? (
+              <div className="space-y-2">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="flex justify-between">
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-4 w-16" />
+                  </div>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Phase</TableHead>
+                    <TableHead>Start Date</TableHead>
+                    <TableHead>End Date</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data?.timeline.map((phase) => (
+                    <TableRow key={phase.id}>
+                      <TableCell>{phase.name}</TableCell>
+                      <TableCell>{phase.startDate}</TableCell>
+                      <TableCell>{phase.endDate}</TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={
+                            phase.status === "completed"
+                              ? "default"
+                              : phase.status === "in-progress"
+                                ? "secondary"
+                                : "outline"
+                          }
+                        >
+                          {phase.status}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
       </div>

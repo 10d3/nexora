@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 
 interface DataCardProps {
   title: string;
-  value: string | number;
+  value: string | number | React.ReactNode;
   description?: string;
   icon?: React.ReactNode;
   className?: string;

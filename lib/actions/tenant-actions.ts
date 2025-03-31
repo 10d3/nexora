@@ -162,7 +162,7 @@ export async function createTenant(formData: FormData) {
       await tx.auditLog.create({
         data: {
           action: "CREATE",
-          modelName: "Tenant",
+          modelName: name,
           recordId: tenant.id,
           newData: { name, slug, businessType, description, subdomain },
           createdById: userId,
