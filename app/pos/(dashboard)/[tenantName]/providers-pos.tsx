@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { DashboardProvider } from "@/context/dashboard-provider";
 import { ReservationProvider } from "@/context/reservation-provider";
+import { StaffProvider } from "@/context/staff-provider";
 import React from "react";
 
 export default function ProviderPos({
@@ -12,7 +13,9 @@ export default function ProviderPos({
 }) {
   return (
     <DashboardProvider tenant={tenant}>
-      <ReservationProvider>{children}</ReservationProvider>
+      <ReservationProvider>
+        <StaffProvider>{children}</StaffProvider>
+      </ReservationProvider>
     </DashboardProvider>
   );
 }
