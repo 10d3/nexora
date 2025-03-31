@@ -635,7 +635,7 @@ model Booking {
 model Staff {
   id             String             @id @default(cuid())
   name           String
-  email          String?            @unique
+  email          String?
   phone          String?
   specialization String?
   bio            String?
