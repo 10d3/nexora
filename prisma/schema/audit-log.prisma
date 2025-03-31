@@ -1,16 +1,30 @@
 model AuditLog {
-    id          String      @id @default(cuid())
-    action      AuditAction
-    modelName   String
-    recordId    String
-    oldData     Json?
-    newData     Json?
-    createdById String?
-    createdBy   User?       @relation("CreatedBy", fields: [createdById], references: [id])
-    updatedById String?
-    updatedBy   User?       @relation("UpdatedBy", fields: [updatedById], references: [id])
-    tenantId    String
-    tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-    createdAt   DateTime    @default(now())
-    updatedAt   DateTime    @default(now()) // Added default value
+    id           String      @id @default(cuid())
+    action       AuditAction
+    modelName    String
+    recordId     String
+    oldData      Json?
+    newData      Json?
+    metadata     Json? // Additional contextual information
+    ipAddress    String? // IP address of the user
+    userAgent    String? // Browser/client information
+    status       String? // "success" or "failure"
+    errorMessage String? // Error message if action failed
+    duration     Int? // Time taken to complete the action in milliseconds
+    createdById  String?
+    createdBy    User?       @relation("CreatedBy", fields: [createdById], references: [id])
+    updatedById  String?
+    updatedBy    User?       @relation("UpdatedBy", fields: [updatedById], references: [id])
+    tenantId     String
+    tenant       Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+    createdAt    DateTime    @default(now())
+    updatedAt    DateTime    @default(now())
+
+    @@index([action])
+    @@index([modelName])
+    @@index([recordId])
+    @@index([tenantId])
+    @@index([createdById])
+    @@index([createdAt])
+    @@index([status])
 }
