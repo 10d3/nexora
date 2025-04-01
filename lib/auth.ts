@@ -52,7 +52,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   pages: {
     signIn: "/sign-in",
-    // signOut: "/pos/sign-out",
+    signOut: "/sign-out",
     // error: "/pos/error",
   },
   // Add the secret from environment variables

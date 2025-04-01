@@ -465,16 +465,16 @@ export async function getRestaurantStats(
     try {
       // Check if completedAt exists in your schema, otherwise use a different approach
       const serviceTimeResult = await prisma.$queryRaw<ServiceTimeResult>`
-          SELECT AVG(EXTRACT(EPOCH FROM (completed_at - created_at)) / 60) as avg_minutes
-          FROM "Order"
-          WHERE 
-            tenant_id = ${tenantId}
-            AND status = 'COMPLETED'
-            AND created_at >= ${from}
-            AND created_at <= ${to}
-            AND deleted_at IS NULL
-            AND completed_at IS NOT NULL
-        `;
+      SELECT AVG(EXTRACT(EPOCH FROM ("completedAt" - "createdAt")) / 60) as avg_minutes
+      FROM "Order"
+      WHERE 
+        "tenantId" = ${tenantId}
+        AND "status" = 'COMPLETED'
+        AND "createdAt" >= ${from}
+        AND "createdAt" <= ${to}
+        AND "deletedAt" IS NULL
+        AND "completedAt" IS NOT NULL
+    `;
 
       if (serviceTimeResult[0]?.avg_minutes) {
         averageServiceTime = serviceTimeResult[0].avg_minutes;
@@ -482,6 +482,7 @@ export async function getRestaurantStats(
     } catch (error) {
       console.error("Error calculating average service time:", error);
       // Keep using the default value
+      // return averageServiceTime
     }
 
     // Get tables by status
@@ -533,6 +534,9 @@ export async function getRestaurantStats(
         reservationTime: "asc",
       },
       take: 5,
+      include: {
+        table: true,
+      },
     });
 
     // Calculate table turnover rate
@@ -552,8 +556,8 @@ export async function getRestaurantStats(
           name: reservation.customerName,
           time: `${time.getHours()}:${time.getMinutes().toString().padStart(2, "0")} ${time.getHours() >= 12 ? "PM" : "AM"}`,
           guests: reservation.partySize,
-          table: reservation.tableId
-            ? Number.parseInt(reservation.tableId.slice(-2))
+          table: reservation.table?.number
+            ? Number.parseInt(reservation.table?.number.slice(-2))
             : Math.floor(Math.random() * 20) + 1,
           status: reservation.status.toLowerCase(),
         };
@@ -865,7 +869,7 @@ export async function getPharmacyStats(
     const totalPrescriptions = await prisma.prescription.count({
       where: {
         tenantId,
-        issueDate: {
+        createdAt: { // Changed from issueDate to createdAt
           gte: from,
           lte: to,
         },
@@ -906,14 +910,12 @@ export async function getPharmacyStats(
         tenantId,
       },
       include: {
-        items: {
-          include: {
-            medication: true,
-          },
-        },
+        medication: true, // Include the medication directly
+        patient: true,    // Include the patient
+        prescribedBy: true // Include the prescriber
       },
       orderBy: {
-        issueDate: "desc",
+        createdAt: "desc", // Changed from issueDate to createdAt
       },
       take: 5,
     });
@@ -921,11 +923,10 @@ export async function getPharmacyStats(
     const formattedRecentPrescriptions = recentPrescriptions.map(
       (prescription, index) => ({
         id: prescription.id.substring(0, 7).toUpperCase(),
-        patient: prescription.patientName,
-        medication:
-          prescription.items[0]?.medication.name || "Multiple medications",
+        patient: prescription.patient.name || "Unknown Patient",
+        medication: prescription.medication?.name || "Multiple medications",
         status: ["ready", "processing", "pending", "ready"][index % 4],
-        date: prescription.issueDate.toLocaleDateString(),
+        date: prescription.createdAt.toLocaleDateString(), // Changed from issueDate to createdAt
       })
     );
 

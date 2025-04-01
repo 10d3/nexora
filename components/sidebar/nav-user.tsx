@@ -26,7 +26,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { useRouter } from "next/navigation";
+// import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { ModeToggle } from "@/components/shared/toggle-theme";
 import { ThemeColorToggle } from "@/components/shared/color-toggle";
@@ -43,7 +43,7 @@ export function NavUser({
   isOwner?: boolean;
 }) {
   const { isMobile } = useSidebar();
-  const router = useRouter();
+  // const router = useRouter();
 
   // Get user initials for avatar fallback
   const getInitials = (name: string) => {
@@ -156,7 +156,6 @@ export function NavUser({
             <DropdownMenuItem
               onClick={async () => {
                 await signOut();
-                router.push("/sign-in");
               }}
             >
               <LogOut className="mr-2 h-4 w-4" />

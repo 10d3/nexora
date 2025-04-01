@@ -119,6 +119,7 @@ const getInventoryNavItem = (businessType: BusinessType): NavItem | null => {
     "TEXTILE",
     "AUTOMOTIVE",
     "PHARMACIE",
+    "RESTAURANT",
   ];
 
   if (inventoryBusinessTypes.includes(businessType)) {
@@ -738,13 +739,14 @@ export function getNavLinks(businessType: BusinessType): NavItem[] {
   // Business types that use "Menu Items" or other specialized product concepts
   // instead of generic "Products"
   const specializedProductTypes = [
-    // "RESTAURANT",
+    "RESTAURANT",
     "BAKERY",
     "BAR",
     "SALON",
     "SERVICE",
     "PHARMACIE",
     "HOTEL",
+    "CONSTRUCTION",
   ];
 
   // Filter out Products link for business types that use specialized product concepts
