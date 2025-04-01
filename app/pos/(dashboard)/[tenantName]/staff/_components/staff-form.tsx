@@ -8,7 +8,11 @@ import type { BusinessType } from "@prisma/client";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { createStaff, updateStaff, getServices } from "@/lib/actions/staff-actions";
+import {
+  createStaff,
+  updateStaff,
+  getServices,
+} from "@/lib/actions/staff-actions";
 import {
   Dialog,
   DialogContent,
@@ -66,12 +70,14 @@ const staffSchema = z.object({
 
 type StaffFormValues = z.infer<typeof staffSchema>;
 
+// Update the StaffFormProps interface to accept staffData in onSuccess
 interface StaffFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSuccess?: () => void;
-  staff?: any;
+  staff?: any; // For editing existing staff
+  onSuccess?: (staffData?: any) => void; // Make staffData optional
   businessType: BusinessType;
+  tenantId: string;
 }
 
 export default function StaffForm({
@@ -84,6 +90,8 @@ export default function StaffForm({
   const { tenantId } = useDashboard();
   const [services, setServices] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+
+  console.log("staff", staff);
 
   // Get specialization options based on business type
   const getSpecializationOptions = (businessType: BusinessType): string[] => {
@@ -136,6 +144,22 @@ export default function StaffForm({
     },
   });
 
+  // Reset form values when staff changes
+  useEffect(() => {
+    if (staff) {
+      form.reset({
+        id: staff.id,
+        name: staff.name || "",
+        email: staff.email || "",
+        phone: staff.phone || "",
+        specialization: staff.specialization || "",
+        bio: staff.bio || "",
+        image: staff.image || "",
+        services: staff.services?.map((s: any) => s.id) || [],
+      });
+    }
+  }, [staff, form]);
+
   // Fetch services when the form opens
   useEffect(() => {
     if (open) {
@@ -154,17 +178,24 @@ export default function StaffForm({
     }
   }, [open, tenantId]);
 
+  // Update the onSubmit function to properly handle edits
   const onSubmit = async (values: StaffFormValues) => {
     setLoading(true);
 
     try {
+      // Ensure ID is included when editing
+      if (staff?.id) {
+        values.id = staff.id;
+      }
+
       const action = values.id ? updateStaff : createStaff;
-      console.log("Action:", action);
       const result = await action(businessType, values, tenantId as string);
-      console.log("Result:", result);
 
       if (result.success) {
-        onSuccess?.();
+        // Pass the updated data to onSuccess callback
+        if (onSuccess) {
+          onSuccess(result.data || values);
+        }
         onOpenChange(false);
       } else {
         toast.error("Error", {
@@ -191,6 +222,9 @@ export default function StaffForm({
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            {staff?.id && (
+              <input type="hidden" {...form.register("id")} value={staff.id} />
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}

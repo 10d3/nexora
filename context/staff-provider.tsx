@@ -2,10 +2,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState } from "react";
 import { useDashboard } from "./dashboard-provider";
 import { BusinessType } from "@prisma/client";
-import { getStaff } from "@/lib/actions/staff-actions"; // Import the server action
+import { getStaff } from "@/lib/actions/staff-actions";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 type StaffContextType = {
   staff: any[];
@@ -21,15 +22,14 @@ type StaffContextType = {
   specializationFilter: string[];
   setSpecializationFilter: (specializations: string[]) => void;
   specializationOptions: string[];
+  updateLocalStaff: (updatedStaff: any) => void;
 };
 
 const StaffContext = createContext<StaffContextType | undefined>(undefined);
 
 export function StaffProvider({ children }: { children: React.ReactNode }) {
   const { tenantId, businessType } = useDashboard();
-  const [staff, setStaff] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
   const [selectedStaff, setSelectedStaff] = useState<any | null>(null);
   const [view, setView] = useState<"table" | "grid" | "calendar">("table");
   const [search, setSearch] = useState("");
@@ -58,77 +58,81 @@ export function StaffProvider({ children }: { children: React.ReactNode }) {
           "Concierge",
           "Housekeeper",
           "Maintenance",
-          "Bellhop",
+          "Manager",
         ];
-      case "PHARMACIE":
-        return ["Pharmacist", "Pharmacy Technician", "Consultant"];
-      case "EDUCATION":
-        return ["Teacher", "Instructor", "Administrator", "Counselor"];
-      case "CONSTRUCTION":
-        return ["Foreman", "Contractor", "Engineer", "Architect", "Laborer"];
       default:
-        return ["General", "Specialist", "Manager"];
+        return ["Manager", "Associate", "Specialist"];
     }
   };
 
-  const specializationOptions = getSpecializationOptions(businessType);
+  const specializationOptions = getSpecializationOptions(
+    businessType || "RETAIL"
+  );
 
-  const fetchData = async () => {
-    if (!tenantId || !businessType) return;
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      // Use the server action instead of fetch API
+  // Fetch staff data using React Query
+  const {
+    data: staffData = [],
+    isLoading: loading,
+    error: queryError,
+    refetch,
+  } = useQuery({
+    queryKey: ["staff", businessType, tenantId, search, specializationFilter],
+    queryFn: async () => {
       const result = await getStaff(
-        businessType,
-        tenantId,
+        businessType || "RETAIL",
+        tenantId || "",
         search,
         specializationFilter.length > 0 ? specializationFilter : undefined
       );
 
-      if (result.success) {
-        setStaff(result.data || []);
-      } else {
-        setError(result.error || "Failed to fetch staff");
+      if (!result.success) {
+        throw new Error(result.error || "Failed to fetch staff");
       }
-    } catch (err) {
-      setError("An unexpected error occurred");
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  useEffect(() => {
-    if (tenantId) {
-      fetchData();
-    }
-  }, [tenantId, search, specializationFilter]);
+      return result.data;
+    },
+    enabled: !!tenantId && !!businessType,
+  });
 
+  // Function to refresh data
   const refreshData = async () => {
-    await fetchData();
+    await refetch();
   };
 
-  const value = {
-    staff,
-    loading,
-    error,
-    refreshData,
-    selectedStaff,
-    setSelectedStaff,
-    view,
-    setView,
-    search,
-    setSearch,
-    specializationFilter,
-    setSpecializationFilter,
-    specializationOptions,
+  // Function to update local staff data (for optimistic updates)
+  const updateLocalStaff = (updatedStaff: any) => {
+    queryClient.setQueryData(
+      ["staff", businessType, tenantId, search, specializationFilter],
+      (oldData: any[] | undefined) => {
+        if (!oldData) return oldData;
+        return oldData.map((staff) =>
+          staff.id === updatedStaff.id ? updatedStaff : staff
+        );
+      }
+    );
   };
 
   return (
-    <StaffContext.Provider value={value}>{children}</StaffContext.Provider>
+    <StaffContext.Provider
+      value={{
+        staff: staffData,
+        loading,
+        error: queryError ? (queryError as Error).message : null,
+        refreshData,
+        selectedStaff,
+        setSelectedStaff,
+        view,
+        setView,
+        search,
+        setSearch,
+        specializationFilter,
+        setSpecializationFilter,
+        specializationOptions,
+        updateLocalStaff,
+      }}
+    >
+      {children}
+    </StaffContext.Provider>
   );
 }
 

@@ -2,8 +2,6 @@
 "use client";
 
 import { useState } from "react";
-// import { useStaff } from "@/providers/staff-provider";
-// import { useDashboard } from "@/providers/dashboard-provider";
 import {
   Table,
   TableBody,
@@ -36,18 +34,25 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { StaffTableSkeleton } from "./staff-skeleton";
-import { deleteStaff } from "@/lib/actions/staff-actions";
 import { useStaff } from "@/context/staff-provider";
 import { useDashboard } from "@/context/dashboard-provider";
+import { useStaffMutation } from "@/hooks/use-staff-mutations";
 
 export default function StaffTable() {
-  const { staff, loading, refreshData } = useStaff();
+  const { staff, loading } = useStaff();
   const { tenantId, businessType } = useDashboard();
   const [editingStaff, setEditingStaff] = useState<any>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [staffToDelete, setStaffToDelete] = useState<any>(null);
 
+  // Use the staff mutations hook
+  const { updateStaffMember, deleteStaffMember, isPending } = useStaffMutation(
+    businessType || "RETAIL",
+    tenantId || ""
+  );
+
   const handleEdit = (staff: any) => {
+    console.log("Editing staff:", staff); // Add this log statement
     setEditingStaff(staff);
   };
 
@@ -59,36 +64,36 @@ export default function StaffTable() {
   const confirmDelete = async () => {
     if (!staffToDelete) return;
 
-    try {
-      const result = await deleteStaff(staffToDelete.id, tenantId as string);
+    // Use the optimistic delete function
+    const result = await deleteStaffMember(staffToDelete.id);
 
-      if (result.success) {
-        toast.success("Staff member deleted", {
-          description: "The staff member has been deleted successfully.",
-        });
-        refreshData();
-      } else {
-        toast.error("Error", {
-          description: result.error || "Failed to delete staff member",
-        });
-      }
-    } catch (error) {
-      toast.error("Error", {
-        description: "An unexpected error occurred",
+    if (result.success) {
+      toast.success("Staff member deleted", {
+        description: "The staff member has been deleted successfully.",
       });
-      console.error(error);
-    } finally {
-      setIsDeleteDialogOpen(false);
-      setStaffToDelete(null);
     }
+
+    setIsDeleteDialogOpen(false);
+    setStaffToDelete(null);
   };
 
-  const handleEditSuccess = () => {
-    refreshData();
-    setEditingStaff(null);
-    toast.success("Staff member updated", {
-      description: "The staff member has been updated successfully.",
-    });
+  const handleEditSuccess = async (staffData: any) => {
+    // If staffData already has an ID (from the form), use that
+    // Otherwise, ensure we're using the ID from editingStaff
+    const updatedStaffData = {
+      ...staffData,
+      id: staffData.id || editingStaff.id,
+    };
+
+    // Use the optimistic update function
+    const result = await updateStaffMember(updatedStaffData);
+
+    if (result.success) {
+      setEditingStaff(null);
+      toast.success("Staff member updated", {
+        description: "The staff member has been updated successfully.",
+      });
+    }
   };
 
   if (loading) {
@@ -98,11 +103,8 @@ export default function StaffTable() {
   if (staff.length === 0) {
     return (
       <Card>
-        <CardContent className="flex flex-col items-center justify-center p-6 text-center">
-          <p className="text-muted-foreground mb-4">No team members found</p>
-          <p className="text-sm text-muted-foreground">
-            Add team members to get started or try a different search.
-          </p>
+        <CardContent className="p-6 text-center">
+          <p className="text-muted-foreground">No team members found</p>
         </CardContent>
       </Card>
     );
@@ -116,123 +118,120 @@ export default function StaffTable() {
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
-                <TableHead>Specialization</TableHead>
                 <TableHead>Contact</TableHead>
+                <TableHead>Specialization</TableHead>
                 <TableHead>Services</TableHead>
                 <TableHead className="w-[80px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {staff.map((member:any) => (
-                <TableRow key={member.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <Avatar>
-                        <AvatarImage
-                          src={member.image || ""}
-                          alt={member.name}
-                        />
-                        <AvatarFallback>
-                          {member.name
-                            .split(" ")
-                            .map((n: string) => n[0])
-                            .join("")
-                            .toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="font-medium">{member.name}</p>
-                        {member.bio && (
-                          <p className="text-sm text-muted-foreground line-clamp-1">
-                            {member.bio}
-                          </p>
+              {staff.map((member) => {
+                const isTemporary = member.id.startsWith("temp-");
+
+                return (
+                  <TableRow
+                    key={member.id}
+                    className={isTemporary ? "opacity-70" : ""}
+                  >
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Avatar>
+                          <AvatarImage src={member.image || ""} />
+                          <AvatarFallback>
+                            {member.name
+                              .split(" ")
+                              .map((n: string) => n[0])
+                              .join("")}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <div className="font-medium">{member.name}</div>
+                          {isTemporary && (
+                            <div className="text-xs text-muted-foreground">
+                              Creating...
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm">
+                        {member.email && <div>{member.email}</div>}
+                        {member.phone && <div>{member.phone}</div>}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {member.specialization && (
+                        <Badge variant="outline">{member.specialization}</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {member.services &&
+                          member.services.slice(0, 2).map((service: any) => (
+                            <Badge
+                              key={service.id}
+                              variant="secondary"
+                              className="text-xs"
+                            >
+                              {service.name}
+                            </Badge>
+                          ))}
+                        {member.services && member.services.length > 2 && (
+                          <Badge variant="outline" className="text-xs">
+                            +{member.services.length - 2} more
+                          </Badge>
                         )}
                       </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {member.specialization ? (
-                      <Badge variant="outline">{member.specialization}</Badge>
-                    ) : (
-                      <span className="text-muted-foreground text-sm">
-                        Not specified
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <div className="space-y-1">
-                      {member.email && (
-                        <p className="text-sm">{member.email}</p>
-                      )}
-                      {member.phone && (
-                        <p className="text-sm">{member.phone}</p>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-1">
-                      {member.services && member.services.length > 0 ? (
-                        member.services.slice(0, 2).map((service: any) => (
-                          <Badge
-                            key={service.id}
-                            variant="secondary"
-                            className="text-xs"
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            disabled={isTemporary || isPending}
                           >
-                            {service.name}
-                          </Badge>
-                        ))
-                      ) : (
-                        <span className="text-muted-foreground text-sm">
-                          No services
-                        </span>
-                      )}
-                      {member.services && member.services.length > 2 && (
-                        <Badge variant="secondary" className="text-xs">
-                          +{member.services.length - 2} more
-                        </Badge>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Open menu</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleEdit(member)}>
-                          <Pencil className="mr-2 h-4 w-4" />
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => handleDelete(member)}
-                          className="text-destructive focus:text-destructive"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleEdit(member)}>
+                            <Pencil className="mr-2 h-4 w-4" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-destructive"
+                            onClick={() => handleDelete(member)}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
 
-      {editingStaff && (
-        <StaffForm
-          open={!!editingStaff}
-          onOpenChange={() => setEditingStaff(null)}
-          onSuccess={handleEditSuccess}
-          staff={editingStaff}
-          businessType={businessType}
-        />
-      )}
+      {/* Edit Staff Form */}
+      <StaffForm
+        open={!!editingStaff}
+        onOpenChange={(open) => {
+          if (!open) setEditingStaff(null);
+        }}
+        staff={editingStaff}
+        onSuccess={handleEditSuccess}
+        businessType={businessType || "RETAIL"}
+        tenantId={tenantId || ""}
+      />
 
+      {/* Delete Confirmation Dialog */}
       <AlertDialog
         open={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}
@@ -241,15 +240,15 @@ export default function StaffTable() {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete {staffToDelete?.name}. This action
-              cannot be undone.
+              This action cannot be undone. This will permanently delete the
+              team member and remove their data from the system.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmDelete}
-              className="bg-destructive text-destructive-foreground"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Delete
             </AlertDialogAction>

@@ -93,7 +93,7 @@ export async function createStaff(
   tenantId: string
 ) {
   try {
-    console.log(data)
+    console.log(data);
     // Check if user has permission to create staff
     const hasPermission = await checkPermission(Permission.MANAGE_USERS);
     if (!hasPermission) {
@@ -152,47 +152,52 @@ export async function updateStaff(
     }
 
     const validatedData = staffSchema.parse(data);
-    const { id, services, ...staffData } = validatedData;
 
-    if (!id) {
-      return { success: false, error: "Staff ID is required" };
+    // Ensure we have an ID for update
+    if (!validatedData.id) {
+      return {
+        success: false,
+        error: "Staff ID is required for updates",
+      };
     }
 
-    // Update the staff in a transaction to handle services properly
-    const staff = await prisma.$transaction(async (tx) => {
-      // Update the staff record
-      const updatedStaff = await tx.staff.update({
-        where: { id },
-        data: staffData,
-      });
+    // First, delete existing service connections
+    await prisma.staffService.deleteMany({
+      where: {
+        staffId: validatedData.id,
+      },
+    });
 
-      // If services are provided, update them
-      if (services) {
-        // Delete existing services
-        await tx.staffService.deleteMany({
-          where: { staffId: id },
-        });
-
-        // Create new services
-        if (services.length > 0) {
-          await tx.staffService.createMany({
-            data: services.map((serviceId) => ({
-              staffId: id,
+    // Update the staff member
+    const staff = await prisma.staff.update({
+      where: {
+        id: validatedData.id,
+      },
+      data: {
+        name: validatedData.name,
+        email: validatedData.email,
+        phone: validatedData.phone,
+        specialization: validatedData.specialization,
+        bio: validatedData.bio,
+        image: validatedData.image,
+        services: {
+          create:
+            validatedData.services?.map((serviceId) => ({
               serviceId,
               tenantId,
-            })),
-          });
-        }
-      }
-
-      return updatedStaff;
+            })) || [],
+        },
+      },
     });
 
     revalidatePath("/staff");
     return { success: true, data: staff };
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return { success: false, error: error.errors[0].message };
+      return {
+        success: false,
+        error: error.errors.map((e) => e.message).join(", "),
+      };
     }
     console.error("Error updating staff:", error);
     return { success: false, error: "Failed to update staff" };
@@ -254,4 +259,3 @@ export async function getServices(tenantId: string) {
     return { success: false, error: "Failed to fetch services" };
   }
 }
-
