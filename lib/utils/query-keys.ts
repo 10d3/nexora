@@ -9,6 +9,9 @@ export const queryKeys = {
   restaurantStats: (tenantId: string, from?: Date, to?: Date) =>
     ["restaurantStats", tenantId, from, to] as const,
 
+  // Kitchen display keys
+  activeOrders: (tenantId: string) => ["activeOrders", tenantId] as const,
+
   // Add other query keys as needed
   reservations: (businessType: string, tenantId: string, filters?: any) =>
     ["reservations", businessType, tenantId, filters] as const,

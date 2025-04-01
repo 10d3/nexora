@@ -580,6 +580,74 @@ export async function getRestaurantStats(
   }
 }
 
+// Kitchen display actions
+export async function getActiveOrders(tenantId: string) {
+  try {
+    const orders = await prisma.order.findMany({
+      where: {
+        tenantId,
+        status: {
+          in: ["PENDING", "IN_PROGRESS", "COMPLETED"],
+        },
+        deletedAt: null,
+      },
+      include: {
+        table: true,
+        orderItems: {
+          include: {
+            product: true,
+            // menuItem: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "asc",
+      },
+    });
+
+    return { orders };
+  } catch (error) {
+    console.error("Error fetching active orders:", error);
+    return { error: "Failed to fetch active orders" };
+  }
+}
+
+export async function updateOrderStatus(
+  orderId: string,
+  status: string,
+  tenantId: string
+) {
+  try {
+    // Verify the order belongs to this tenant
+    const order = await prisma.order.findFirst({
+      where: {
+        id: orderId,
+        tenantId,
+      },
+    });
+
+    if (!order) {
+      return { error: "Order not found" };
+    }
+
+    // Update the order status
+    const updatedOrder = await prisma.order.update({
+      where: {
+        id: orderId,
+      },
+      data: {
+        status: status as OrderStatus,
+        ...(status === "COMPLETED" ? { completedAt: new Date() } : {}),
+      },
+    });
+
+    return { order: updatedOrder };
+  } catch (error) {
+    console.error("Error updating order status:", error);
+    return { error: "Failed to update order status" };
+  }
+}
+
 // Add more business-specific actions as needed
 // For example: getHotelStats, getSalonStats, getPharmacyStats, etc.
 
@@ -869,7 +937,8 @@ export async function getPharmacyStats(
     const totalPrescriptions = await prisma.prescription.count({
       where: {
         tenantId,
-        createdAt: { // Changed from issueDate to createdAt
+        createdAt: {
+          // Changed from issueDate to createdAt
           gte: from,
           lte: to,
         },
@@ -911,8 +980,8 @@ export async function getPharmacyStats(
       },
       include: {
         medication: true, // Include the medication directly
-        patient: true,    // Include the patient
-        prescribedBy: true // Include the prescriber
+        patient: true, // Include the patient
+        prescribedBy: true, // Include the prescriber
       },
       orderBy: {
         createdAt: "desc", // Changed from issueDate to createdAt

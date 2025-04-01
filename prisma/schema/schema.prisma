@@ -147,6 +147,7 @@ enum OrderStatus {
   READY_FOR_PICKUP // For restaurants
   DELIVERED // For restaurants
   PAID // For retail
+  READY
 }
 
 enum OrderType {
