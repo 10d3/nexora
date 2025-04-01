@@ -30,10 +30,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { CalendarIcon, Clock } from "lucide-react";
 import { toast } from "sonner";
-import {
-  createReservation,
-  updateReservation,
-} from "@/lib/actions/reservation-actions";
+import { useReservationMutation } from "@/hooks/use-reservation-mutations";
+// import { useReservationMutation } from "@/hooks/use-reservation-mutation";
 
 type ReservationDialogProps = {
   open: boolean;
@@ -50,10 +48,9 @@ export function ReservationDialog({
   businessType,
   tenantId,
   mode,
-//   refreshData
+  //   refreshData
 }: ReservationDialogProps) {
-  const { selectedReservation, resources, refreshData } = useReservation();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { selectedReservation, resources } = useReservation();
   const [formData, setFormData] = useState({
     id: "",
     customerName: "",
@@ -67,6 +64,13 @@ export function ReservationDialog({
     status: "CONFIRMED",
     resourceId: "",
   });
+
+  // Use the custom mutation hook
+  const {
+    createReservation: createReservationMutation,
+    updateReservation: updateReservationMutation,
+    isPending,
+  } = useReservationMutation(businessType, tenantId);
 
   // Reset form when dialog opens/closes or mode changes
   useEffect(() => {
@@ -129,7 +133,6 @@ export function ReservationDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
 
     try {
       // Combine date and time
@@ -160,47 +163,22 @@ export function ReservationDialog({
             : formData.resourceId || null,
       };
 
-      let result;
+      // Close the dialog immediately for better UX (optimistic update)
+      onOpenChange(false);
+
+      // Use the mutation functions instead of direct API calls
       if (mode === "create") {
-        result = await createReservation(
-          businessType,
-          reservationData,
-          tenantId
-        );
+        createReservationMutation(reservationData);
       } else {
-        result = await updateReservation(
-          businessType,
-          //   businessType,
-          //   reservationData.id as string,
-          reservationData,
-          tenantId
-        );
+        updateReservationMutation(reservationData);
       }
 
-      if (result.success) {
-        toast.success(
-          mode === "create" ? "Reservation created" : "Reservation updated",
-          {
-            description:
-              mode === "create"
-                ? "The reservation has been successfully created."
-                : "The reservation has been successfully updated.",
-          }
-        );
-        refreshData();
-        onOpenChange(false);
-      } else {
-        toast.error("Error", {
-          description: result.error || "Failed to save reservation.",
-        });
-      }
+      // No need to call refreshData() as the optimistic updates will handle the UI changes
     } catch (error) {
       console.error("Error saving reservation:", error);
       toast.error("Error", {
         description: "An unexpected error occurred.",
       });
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -387,8 +365,8 @@ export function ReservationDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting
+            <Button type="submit" disabled={isPending}>
+              {isPending
                 ? "Saving..."
                 : mode === "create"
                   ? "Create"
