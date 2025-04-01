@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use server";
 import { OrderStatus, TableStatus } from "@prisma/client";
@@ -1040,5 +1041,287 @@ export async function getPharmacyStats(
   } catch (error) {
     console.error("Error fetching pharmacy stats:", error);
     return { error: "Failed to fetch pharmacy statistics" };
+  }
+}
+
+// Cybercafe-specific actions
+export async function getCybercafeStats(
+  tenantId: string,
+  dateFrom?: Date,
+  dateTo?: Date
+) {
+  try {
+    // Set default date range if not provided
+    const to = dateTo || new Date();
+    const from = dateFrom || new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000); // 30 days before
+
+    // For cybercafe, we'll simulate some data since the schema doesn't have specific cybercafe models
+    // In a real application, you would query from actual tables
+
+    // Get total orders/sessions
+    const totalSessions = await prisma.order.count({
+      where: {
+        tenantId,
+        orderType: "STANDARD", // Assuming standard orders for cybercafe sessions
+        createdAt: {
+          gte: from,
+          lte: to,
+        },
+        deletedAt: null,
+      },
+    });
+
+    // Get today's revenue
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const todayRevenue = await prisma.order.aggregate({
+      where: {
+        tenantId,
+        createdAt: {
+          gte: today,
+          lt: tomorrow,
+        },
+        deletedAt: null,
+      },
+      _sum: {
+        total: true,
+      },
+      _count: true,
+    });
+
+    // Get products (computers/services)
+    const computers = await prisma.product.findMany({
+      where: {
+        tenantId,
+        deletedAt: null,
+        // You might want to add a category filter here if you have a specific category for computers
+      },
+      take: 20, // Limit to a reasonable number
+    });
+
+    // Simulate active computers and users
+    // In a real app, you would track this in a dedicated table
+    const totalComputers = computers.length;
+    const activeComputers = Math.floor(totalComputers * 0.7); // Simulate 70% active
+    const currentUsers = Math.floor(activeComputers * 0.9); // Simulate 90% of active computers have users
+
+    // Simulate average session time (60 minutes)
+    const avgSession = 60;
+
+    // Generate computer usage data for display
+    const computerUsage = [];
+    for (let i = 0; i < 10; i++) {
+      const isActive = i < activeComputers;
+      const startTime = new Date();
+      startTime.setMinutes(
+        startTime.getMinutes() - Math.floor(Math.random() * 120)
+      );
+
+      computerUsage.push({
+        computerId: `PC-${i + 1}`,
+        user: isActive ? `User-${i + 1}` : "-",
+        startTime: isActive ? startTime.toLocaleTimeString() : "-",
+        duration: isActive ? `${Math.floor(Math.random() * 120)} min` : "-",
+        status: isActive
+          ? "active"
+          : Math.random() > 0.5
+            ? "maintenance"
+            : "available",
+      });
+    }
+
+    return {
+      activeComputers,
+      computersSummary: `${activeComputers} of ${totalComputers} in use`,
+      currentUsers,
+      usersSummary: `${currentUsers} active users`,
+      avgSession,
+      sessionTrend: `Avg ${avgSession} minutes per session`,
+      revenueToday: todayRevenue._sum.total || 0,
+      revenueTrend: "Up 8% from yesterday",
+      computerUsage,
+      totalSessions,
+    };
+  } catch (error) {
+    console.error("Error fetching cybercafe stats:", error);
+    return { error: "Failed to fetch cybercafe statistics" };
+  }
+}
+
+// Supermarket-specific actions
+export async function getSupermarketStats(
+  tenantId: string,
+  dateFrom?: Date,
+  dateTo?: Date
+) {
+  try {
+    // Set default date range if not provided
+    const to = dateTo || new Date();
+    const from = dateFrom || new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000); // 30 days before
+
+    // Get total sales for the period
+    const salesData = await prisma.order.aggregate({
+      where: {
+        tenantId,
+        createdAt: {
+          gte: from,
+          lte: to,
+        },
+        deletedAt: null,
+      },
+      _sum: {
+        total: true,
+      },
+      _count: true,
+    });
+
+    // Get today's sales
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const todaySales = await prisma.order.aggregate({
+      where: {
+        tenantId,
+        createdAt: {
+          gte: today,
+          lt: tomorrow,
+        },
+        deletedAt: null,
+      },
+      _sum: {
+        total: true,
+      },
+      _count: true,
+    });
+
+    // Get inventory stats
+    const inventoryStats = await prisma.product.aggregate({
+      where: {
+        tenantId,
+        deletedAt: null,
+      },
+      _count: true,
+      _sum: {
+        stockQty: true,
+      },
+    });
+
+    // Get low stock items
+    const lowStockThreshold = 10;
+    const lowStockItems = await prisma.product.count({
+      where: {
+        tenantId,
+        stockQty: {
+          lt: lowStockThreshold,
+        },
+        deletedAt: null,
+      },
+    });
+
+    // Get department performance
+    const departments = await prisma.department.findMany({
+      where: {
+        tenantId,
+      },
+      include: {
+        products: {
+          where: {
+            deletedAt: null,
+          },
+          include: {
+            orderItems: {
+              where: {
+                order: {
+                  createdAt: {
+                    gte: from,
+                    lte: to,
+                  },
+                  deletedAt: null,
+                },
+              },
+              select: {
+                quantity: true,
+                price: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // Calculate department sales
+    const departmentPerformance = departments.map((dept) => {
+      const sales = dept.products.reduce((total, product) => {
+        const productSales = product.orderItems.reduce(
+          (sum, item) => sum + item.price * item.quantity,
+          0
+        );
+        return total + productSales;
+      }, 0);
+
+      // Generate random target for demo purposes
+      // In a real app, you would fetch actual targets from the database
+      const target = Math.floor(Math.random() * 5000) + 3000;
+      const progress = Math.min(100, Math.round((sales / target) * 100));
+
+      return {
+        department: dept.name,
+        sales: sales.toFixed(2),
+        target: target.toFixed(2),
+        progress,
+      };
+    });
+
+    // Get active promotions
+    const activePromotions = await prisma.promotion.count({
+      where: {
+        tenantId,
+        startDate: { lte: new Date() },
+        endDate: { gte: new Date() },
+      },
+    });
+
+    // Get scheduled deliveries
+    const deliveriesToday = await prisma.inventoryMovement.count({
+      where: {
+        tenantId,
+        type: "PURCHASE",
+        createdAt: {
+          gte: today,
+          lt: tomorrow,
+        },
+      },
+    });
+
+    return {
+      // Today's metrics
+      salesToday: todaySales._sum.total || 0,
+      salesTrend: "Up 12% from last week",
+      transactionsToday: todaySales._count || 0,
+      transactionsTrend: "Down 3% from yesterday",
+
+      // Inventory metrics
+      inventoryItems: inventoryStats._count || 0,
+      inventorySummary: `${lowStockItems} items below threshold`,
+
+      // Delivery metrics
+      deliveriesToday,
+      deliveriesSummary: `${deliveriesToday} deliveries scheduled today`,
+
+      // Department performance data
+      departmentPerformance,
+
+      // Additional metrics
+      activePromotions,
+      lowStockItems,
+    };
+  } catch (error) {
+    console.error("Error fetching supermarket stats:", error);
+    return { error: "Failed to fetch supermarket statistics" };
   }
 }

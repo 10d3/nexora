@@ -337,12 +337,12 @@ const businessSpecificNavLinks: Record<BusinessType, NavItem[]> = {
       icon: ListOrdered,
       hasSubmenu: false,
     },
-    {
-      title: "Schedule",
-      url: "/schedule",
-      icon: Calendar,
-      hasSubmenu: false,
-    },
+    // {
+    //   title: "Schedule",
+    //   url: "/schedule",
+    //   icon: Calendar,
+    //   hasSubmenu: false,
+    // },
   ],
   SERVICE: [
     {
