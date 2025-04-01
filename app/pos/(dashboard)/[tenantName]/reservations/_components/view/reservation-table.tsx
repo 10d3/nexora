@@ -1,12 +1,25 @@
-"use client"
+/* eslint-disable @typescript-eslint/no-explicit-any */
+"use client";
 
-import { useReservation } from "@/context/reservation-provider"
-import { useDashboard } from "@/context/dashboard-provider"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { format } from "date-fns"
+import { useReservation } from "@/context/reservation-provider";
+import { useDashboard } from "@/context/dashboard-provider";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { format } from "date-fns";
 import {
   MoreHorizontal,
   Edit,
@@ -21,10 +34,10 @@ import {
   Calendar,
   MapPin,
   Clock,
-} from "lucide-react"
-import { useState } from "react"
-import { ReservationDialog } from "../reservation-dialog"
-import { deleteReservation, updateReservationStatus } from "@/lib/actions/reservation-actions"
+} from "lucide-react";
+import { useState } from "react";
+import { ReservationDialog } from "../reservation-dialog";
+import { deleteReservation } from "@/lib/actions/reservation-actions";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,69 +47,125 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
-import { toast } from "sonner"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Card, CardContent } from "@/components/ui/card"
-import { cn } from "@/lib/utils"
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
+import { useReservationMutation } from "@/hooks/use-reservation-mutations";
+import { useQueryClient } from "@tanstack/react-query";
 
 export function ReservationTable() {
-  const { reservations, refreshData, setSelectedReservation } = useReservation()
-  const { tenantId, businessType } = useDashboard()
-  const [editDialogOpen, setEditDialogOpen] = useState(false)
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [selectedRows, setSelectedRows] = useState<string[]>([])
-  const [currentPage, setCurrentPage] = useState(1)
-  const [rowsPerPage, setRowsPerPage] = useState(10)
+  const { reservations, setSelectedReservation } = useReservation();
+  const { tenantId, businessType } = useDashboard();
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedRows, setSelectedRows] = useState<string[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const queryClient = useQueryClient();
+
+  // Use the reservation mutations hook
+  const { updateReservation, isPending } = useReservationMutation(
+    businessType || "RETAIL",
+    tenantId || ""
+  );
 
   // Calculate pagination
-  const totalPages = Math.ceil(reservations.length / rowsPerPage)
-  const paginatedReservations = reservations.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)
+  const totalPages = Math.ceil(reservations.length / rowsPerPage);
+  const paginatedReservations = reservations.slice(
+    (currentPage - 1) * rowsPerPage,
+    currentPage * rowsPerPage
+  );
 
   const handleEdit = (id: string) => {
-    const reservation = reservations.find((r) => r.id === id)
+    const reservation = reservations.find((r) => r.id === id);
     if (reservation) {
-      setSelectedReservation(reservation)
-      setEditDialogOpen(true)
+      setSelectedReservation(reservation);
+      setEditDialogOpen(true);
     }
-  }
+  };
 
   const handleDelete = async () => {
-    if (!selectedId) return
+    if (!selectedId) return;
 
-    const result = await deleteReservation(businessType || "RETAIL", selectedId, tenantId || "")
+    // Optimistically update UI before server response
+    const reservationToDelete = reservations.find((r) => r.id === selectedId);
+    if (reservationToDelete) {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({
+        queryKey: ["reservations", businessType, tenantId],
+      });
 
-    if (result.success) {
-      toast.success("Reservation deleted", {
-        description: "The reservation has been successfully deleted.",
-      })
-      refreshData()
-    } else {
-      toast.error("Error", {
-        description: result.error || "Failed to delete reservation.",
-      })
+      // Snapshot the previous value
+      const previousReservations = queryClient.getQueryData([
+        "reservations",
+        businessType,
+        tenantId,
+      ]);
+
+      // Optimistically remove from UI
+      queryClient.setQueryData(
+        ["reservations", businessType, tenantId],
+        (old: any[] | undefined) => {
+          if (!old) return old;
+          return old.filter((r) => r.id !== selectedId);
+        }
+      );
+
+      const result = await deleteReservation(
+        businessType || "RETAIL",
+        selectedId,
+        tenantId || ""
+      );
+
+      if (result.success) {
+        toast.success("Reservation deleted", {
+          description: "The reservation has been successfully deleted.",
+        });
+      } else {
+        // Restore previous data if operation failed
+        queryClient.setQueryData(
+          ["reservations", businessType, tenantId],
+          previousReservations
+        );
+
+        toast.error("Error", {
+          description: result.error || "Failed to delete reservation.",
+        });
+      }
+
+      // Always refetch to ensure consistency
+      queryClient.invalidateQueries({
+        queryKey: ["reservations", businessType, tenantId],
+      });
     }
 
-    setDeleteDialogOpen(false)
-    setSelectedId(null)
-  }
+    setDeleteDialogOpen(false);
+    setSelectedId(null);
+  };
 
   const handleStatusChange = async (id: string, status: string) => {
-    const result = await updateReservationStatus(businessType || "RETAIL", id, status, tenantId || "")
+    const reservation = reservations.find((r) => r.id === id);
+    if (!reservation) return;
 
-    if (result.success) {
-      toast.success("Status updated", {
-        description: `Reservation status changed to ${status.replace(/_/g, " ")}`,
-      })
-      refreshData()
-    } else {
-      toast.error("Error", {
-        description: result.error || "Failed to update status.",
-      })
-    }
-  }
+    // Create updated reservation object
+    const updatedReservation = {
+      ...reservation,
+      status,
+    };
+
+    // Use the mutation from the hook which handles optimistic updates
+    updateReservation(updatedReservation);
+  };
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
@@ -104,49 +173,52 @@ export function ReservationTable() {
       case "COMPLETED":
       case "CHECKED_IN":
       case "CHECKED_OUT":
-        return "default"
+        return "default";
       case "PENDING":
       case "SCHEDULED":
       case "WAITING_LIST":
-        return "secondary"
+        return "secondary";
       case "CANCELLED":
       case "NO_SHOW":
-        return "destructive"
+        return "destructive";
       default:
-        return "secondary"
+        return "secondary";
     }
-  }
+  };
 
+  // Rest of the component remains the same
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "CONFIRMED":
       case "COMPLETED":
       case "CHECKED_IN":
       case "CHECKED_OUT":
-        return <Check className="h-3 w-3 mr-1" />
+        return <Check className="h-3 w-3 mr-1" />;
       case "PENDING":
       case "SCHEDULED":
       case "WAITING_LIST":
-        return <Clock className="h-3 w-3 mr-1" />
+        return <Clock className="h-3 w-3 mr-1" />;
       case "CANCELLED":
       case "NO_SHOW":
-        return <X className="h-3 w-3 mr-1" />
+        return <X className="h-3 w-3 mr-1" />;
       default:
-        return null
+        return null;
     }
-  }
+  };
 
   const toggleRowSelection = (id: string) => {
-    setSelectedRows((prev) => (prev.includes(id) ? prev.filter((rowId) => rowId !== id) : [...prev, id]))
-  }
+    setSelectedRows((prev) =>
+      prev.includes(id) ? prev.filter((rowId) => rowId !== id) : [...prev, id]
+    );
+  };
 
   const toggleAllRows = () => {
     if (selectedRows.length === paginatedReservations.length) {
-      setSelectedRows([])
+      setSelectedRows([]);
     } else {
-      setSelectedRows(paginatedReservations.map((r) => r.id))
+      setSelectedRows(paginatedReservations.map((r) => r.id));
     }
-  }
+  };
 
   return (
     <>
@@ -158,7 +230,10 @@ export function ReservationTable() {
                 <TableRow className="hover:bg-muted/50">
                   <TableHead className="w-12">
                     <Checkbox
-                      checked={selectedRows.length === paginatedReservations.length && paginatedReservations.length > 0}
+                      checked={
+                        selectedRows.length === paginatedReservations.length &&
+                        paginatedReservations.length > 0
+                      }
                       onCheckedChange={toggleAllRows}
                       aria-label="Select all"
                     />
@@ -185,13 +260,17 @@ export function ReservationTable() {
                       className={cn(
                         "border-b border-border/40",
                         selectedRows.includes(reservation.id) && "bg-muted/20",
+                        reservation.id.startsWith("temp-") && "opacity-70" // Style for optimistic updates
                       )}
                     >
                       <TableCell className="w-12">
                         <Checkbox
                           checked={selectedRows.includes(reservation.id)}
-                          onCheckedChange={() => toggleRowSelection(reservation.id)}
+                          onCheckedChange={() =>
+                            toggleRowSelection(reservation.id)
+                          }
                           aria-label={`Select ${reservation.customerName}`}
+                          disabled={reservation.id.startsWith("temp-")}
                         />
                       </TableCell>
                       <TableCell className="font-medium">
@@ -209,10 +288,19 @@ export function ReservationTable() {
                         <div className="flex items-start gap-2">
                           <Calendar className="h-4 w-4 text-muted-foreground mt-0.5" />
                           <div>
-                            <div>{format(new Date(reservation.startTime), "MMM d, yyyy")}</div>
+                            <div>
+                              {format(
+                                new Date(reservation.startTime),
+                                "MMM d, yyyy"
+                              )}
+                            </div>
                             <div className="text-xs text-muted-foreground">
-                              {format(new Date(reservation.startTime), "h:mm a")}
-                              {reservation.endTime && ` - ${format(new Date(reservation.endTime), "h:mm a")}`}
+                              {format(
+                                new Date(reservation.startTime),
+                                "h:mm a"
+                              )}
+                              {reservation.endTime &&
+                                ` - ${format(new Date(reservation.endTime), "h:mm a")}`}
                             </div>
                           </div>
                         </div>
@@ -220,44 +308,68 @@ export function ReservationTable() {
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <MapPin className="h-4 w-4 text-muted-foreground" />
-                          <span>{reservation.resourceName || "Unassigned"}</span>
+                          <span>
+                            {reservation.resourceName || "Unassigned"}
+                          </span>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={getStatusBadgeVariant(reservation.status)} className="flex items-center w-fit">
+                        <Badge
+                          variant={getStatusBadgeVariant(reservation.status)}
+                          className="flex items-center w-fit"
+                        >
                           {getStatusIcon(reservation.status)}
                           {reservation.status.replace(/_/g, " ")}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-center font-medium">{reservation.size || 1}</TableCell>
+                      <TableCell className="text-center font-medium">
+                        {reservation.size || 1}
+                      </TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 p-0">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 p-0"
+                              disabled={
+                                reservation.id.startsWith("temp-") || isPending
+                              }
+                            >
                               <span className="sr-only">Open menu</span>
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleEdit(reservation.id)}>
+                            <DropdownMenuItem
+                              onClick={() => handleEdit(reservation.id)}
+                            >
                               <Edit className="mr-2 h-4 w-4" />
                               Edit
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() => {
-                                setSelectedId(reservation.id)
-                                setDeleteDialogOpen(true)
+                                setSelectedId(reservation.id);
+                                setDeleteDialogOpen(true);
                               }}
                               className="text-destructive"
                             >
                               <Trash className="mr-2 h-4 w-4" />
                               Delete
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleStatusChange(reservation.id, "CONFIRMED")}>
+                            <DropdownMenuItem
+                              onClick={() =>
+                                handleStatusChange(reservation.id, "CONFIRMED")
+                              }
+                            >
                               <Check className="mr-2 h-4 w-4" />
                               Confirm
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleStatusChange(reservation.id, "CANCELLED")}>
+                            <DropdownMenuItem
+                              onClick={() =>
+                                handleStatusChange(reservation.id, "CANCELLED")
+                              }
+                            >
                               <X className="mr-2 h-4 w-4" />
                               Cancel
                             </DropdownMenuItem>
@@ -283,8 +395,8 @@ export function ReservationTable() {
                 <Select
                   value={rowsPerPage.toString()}
                   onValueChange={(value) => {
-                    setRowsPerPage(Number.parseInt(value))
-                    setCurrentPage(1)
+                    setRowsPerPage(Number.parseInt(value));
+                    setCurrentPage(1);
                   }}
                 >
                   <SelectTrigger className="h-8 w-[70px]">
@@ -317,7 +429,9 @@ export function ReservationTable() {
                   variant="outline"
                   size="icon"
                   className="h-8 w-8"
-                  onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.max(prev - 1, 1))
+                  }
                   disabled={currentPage === 1}
                 >
                   <ChevronLeft className="h-4 w-4" />
@@ -326,7 +440,9 @@ export function ReservationTable() {
                   variant="outline"
                   size="icon"
                   className="h-8 w-8"
-                  onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+                  }
                   disabled={currentPage === totalPages || totalPages === 0}
                 >
                   <ChevronRight className="h-4 w-4" />
@@ -361,18 +477,21 @@ export function ReservationTable() {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the reservation from the system.
+              This action cannot be undone. This will permanently delete the
+              reservation from the system.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground"
+            >
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </>
-  )
+  );
 }
-
