@@ -439,6 +439,19 @@ export async function getRestaurantStats(
     const occupiedTables = tables.filter(
       (table) => table.status === TableStatus.OCCUPIED
     ).length;
+    const availableTables = tables.filter(
+      (table) => table.status === TableStatus.AVAILABLE
+    ).length;
+    const reservedTables = tables.filter(
+      (table) => table.status === TableStatus.RESERVED
+    ).length;
+
+    // Format table status data for pie chart
+    const tablesByStatus = [
+      { name: "Available", value: availableTables },
+      { name: "Occupied", value: occupiedTables },
+      { name: "Reserved", value: reservedTables },
+    ];
 
     // Get reservations for today
     const today = new Date();
@@ -446,7 +459,7 @@ export async function getRestaurantStats(
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    const reservationsToday = await prisma.reservation.count({
+    const reservations = await prisma.reservation.findMany({
       where: {
         tenantId,
         reservationTime: {
@@ -454,130 +467,305 @@ export async function getRestaurantStats(
           lt: tomorrow,
         },
       },
-    });
-
-    // Get average service time (calculated from order timestamps)
-    // This is a simplified calculation and might need adjustment based on your actual data model
-    type ServiceTimeResult = {
-      avg_minutes: number | null;
-    }[];
-
-    let averageServiceTime = 45; // Default fallback value
-    try {
-      // Check if completedAt exists in your schema, otherwise use a different approach
-      const serviceTimeResult = await prisma.$queryRaw<ServiceTimeResult>`
-      SELECT AVG(EXTRACT(EPOCH FROM ("completedAt" - "createdAt")) / 60) as avg_minutes
-      FROM "Order"
-      WHERE 
-        "tenantId" = ${tenantId}
-        AND "status" = 'COMPLETED'
-        AND "createdAt" >= ${from}
-        AND "createdAt" <= ${to}
-        AND "deletedAt" IS NULL
-        AND "completedAt" IS NOT NULL
-    `;
-
-      if (serviceTimeResult[0]?.avg_minutes) {
-        averageServiceTime = serviceTimeResult[0].avg_minutes;
-      }
-    } catch (error) {
-      console.error("Error calculating average service time:", error);
-      // Keep using the default value
-      // return averageServiceTime
-    }
-
-    // Get tables by status
-    const tablesByStatus = [
-      {
-        name: "Available",
-        value: tables.filter((table) => table.status === TableStatus.AVAILABLE)
-          .length,
-      },
-      {
-        name: "Occupied",
-        value: occupiedTables,
-      },
-      {
-        name: "Reserved",
-        value: tables.filter((table) => table.status === TableStatus.RESERVED)
-          .length,
-      },
-    ];
-
-    // Get menu item popularity
-    const menuItemPopularity = await prisma.menuItem.findMany({
-      where: {
-        tenantId,
-        isAvailable: true,
-      },
-      // Fix the include options to match the schema
-      select: {
-        id: true,
-        name: true,
-        price: true,
-        // Add other fields you need
-      },
-      take: 5,
-    });
-
-    // Get upcoming reservations
-    const upcomingReservations = await prisma.reservation.findMany({
-      where: {
-        tenantId,
-        reservationTime: {
-          gte: new Date(),
-        },
-        status: {
-          in: ["CONFIRMED", "PENDING"],
-        },
-      },
-      orderBy: {
-        reservationTime: "asc",
-      },
-      take: 5,
       include: {
         table: true,
       },
     });
 
-    // Calculate table turnover rate
-    // This is a simplified calculation and might need adjustment based on your actual data model
-    const turnoverRate = 4; // Placeholder value
+    // Get orders for today
+    const orders = await prisma.order.findMany({
+      where: {
+        tenantId,
+        createdAt: {
+          gte: today,
+          lt: tomorrow,
+        },
+        deletedAt: null,
+      },
+      include: {
+        // Based on your schema, Order has a relation to OrderItem
+        // and OrderItem has a relation to Product
+        orderItems: {
+          include: {
+            product: true,
+          },
+        },
+        table: true,
+        user: true,
+      },
+    });
 
-    // Format the data for the frontend
-    const formattedMenuItemPopularity = menuItemPopularity.map((item) => ({
-      name: item.name,
-      value: Math.floor(Math.random() * 30) + 10, // Placeholder until we have actual order data
+    // Calculate menu item popularity using MenuItem model
+    // First get all menu items
+    const menuItems = await prisma.menuItem.findMany({
+      where: {
+        tenantId,
+        isAvailable: true,
+      },
+      select: {
+        id: true,
+        name: true,
+        price: true,
+      },
+    });
+
+    // Create a map of menu item popularity (using random data for now)
+    // In a real implementation, you would track this through orders
+    const menuItemPopularity = menuItems
+      .map((item) => ({
+        name: item.name,
+        value: Math.floor(Math.random() * 30) + 10, // Placeholder value
+      }))
+      .slice(0, 5); // Top 5 items
+
+    // Get service time data from actual orders over the past 7 days
+    const last7Days = Array.from({ length: 7 }, (_, i) => {
+      const date = new Date();
+      date.setDate(date.getDate() - 6 + i);
+      date.setHours(0, 0, 0, 0);
+      return date;
+    });
+
+    // Fetch orders for the past 7 days with preparation times
+    const serviceTimeData = await Promise.all(
+      last7Days.map(async (date) => {
+        const nextDay = new Date(date);
+        nextDay.setDate(nextDay.getDate() + 1);
+
+        const dayOrders = await prisma.order.findMany({
+          where: {
+            tenantId,
+            createdAt: {
+              gte: date,
+              lt: nextDay,
+            },
+            completedAt: { not: null },
+            deletedAt: null,
+          },
+          select: {
+            createdAt: true,
+            completedAt: true,
+          },
+        });
+
+        // Calculate average service time in minutes
+        let totalServiceTime = 0;
+        dayOrders.forEach((order) => {
+          if (order.completedAt && order.createdAt) {
+            const serviceTime = Math.floor(
+              (order.completedAt.getTime() - order.createdAt.getTime()) /
+                (1000 * 60)
+            );
+            totalServiceTime += serviceTime;
+          }
+        });
+
+        const avgTime =
+          dayOrders.length > 0
+            ? Math.round(totalServiceTime / dayOrders.length)
+            : 0;
+
+        return {
+          date: date.toISOString().split("T")[0],
+          time: avgTime,
+        };
+      })
+    );
+
+    // Calculate table turnover rate from actual data
+    const turnoverData = await Promise.all(
+      last7Days.map(async (date) => {
+        const nextDay = new Date(date);
+        nextDay.setDate(nextDay.getDate() + 1);
+
+        // Count completed orders per table for this day
+        const tableOrders = await prisma.order.groupBy({
+          by: ["tableId"],
+          where: {
+            tenantId,
+            createdAt: {
+              gte: date,
+              lt: nextDay,
+            },
+            status: OrderStatus.COMPLETED,
+            tableId: { not: null },
+            deletedAt: null,
+          },
+          _count: {
+            id: true,
+          },
+        });
+
+        // Calculate average turnover rate (orders per table)
+        const totalTables = tableOrders.length;
+        const totalOrders = tableOrders.reduce(
+          (sum, item) => sum + item._count.id,
+          0
+        );
+
+        // Average orders per table, or 0 if no tables had orders
+        const rate = totalTables > 0 ? totalOrders / totalTables : 0;
+
+        return {
+          date: date.toISOString().split("T")[0],
+          rate: parseFloat(rate.toFixed(1)),
+        };
+      })
+    );
+
+    // Format upcoming reservations for table display
+    const upcomingReservations = reservations.map((res) => ({
+      "Party Name": res.customerName,
+      Time: new Date(res.reservationTime).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      "Party Size": res.partySize,
+      Table: res.table?.number || "Not assigned",
+      Status: res.status,
     }));
 
-    const formattedUpcomingReservations = upcomingReservations.map(
-      (reservation) => {
-        const time = reservation.reservationTime;
-        return {
-          name: reservation.customerName,
-          time: `${time.getHours()}:${time.getMinutes().toString().padStart(2, "0")} ${time.getHours() >= 12 ? "PM" : "AM"}`,
-          guests: reservation.partySize,
-          table: reservation.table?.number
-            ? Number.parseInt(reservation.table?.number.slice(-2))
-            : Math.floor(Math.random() * 20) + 1,
-          status: reservation.status.toLowerCase(),
-        };
-      }
+    // Calculate metrics
+    const totalOrders = orders.length;
+
+    // Calculate total customers from reservation party size
+    // Since orders don't have partySize in your schema, we'll use table capacity as a fallback
+    const totalCustomers = orders.reduce((sum, order) => {
+      // Use table capacity if available, otherwise default to 1
+      return sum + (order.table?.capacity || 1);
+    }, 0);
+
+    // Calculate average service time from completed orders
+    const completedOrders = orders.filter(
+      (order) => order.status === OrderStatus.COMPLETED && order.completedAt
+    );
+
+    const avgServiceTime =
+      completedOrders.length > 0
+        ? Math.floor(
+            completedOrders.reduce((sum, order) => {
+              if (order.completedAt && order.createdAt) {
+                return (
+                  sum +
+                  Math.floor(
+                    (order.completedAt.getTime() - order.createdAt.getTime()) /
+                      (1000 * 60)
+                  )
+                );
+              }
+              return sum;
+            }, 0) / completedOrders.length
+          )
+        : 0;
+
+    const totalReservations = reservations.length;
+
+    // Get historical average service time (last 7 days excluding today)
+    const historicalServiceTime = serviceTimeData
+      .slice(0, 6) // Take the first 6 days (excluding today)
+      .reduce((sum, day) => sum + day.time, 0);
+
+    const avgHistoricalServiceTime =
+      serviceTimeData.slice(0, 6).length > 0
+        ? Math.round(historicalServiceTime / serviceTimeData.slice(0, 6).length)
+        : avgServiceTime;
+
+    // Get yesterday's data for trend calculations
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const dayBeforeYesterday = new Date(yesterday);
+    dayBeforeYesterday.setDate(dayBeforeYesterday.getDate() - 1);
+
+    // Get yesterday's orders
+    const yesterdayOrders = await prisma.order.findMany({
+      where: {
+        tenantId,
+        createdAt: {
+          gte: yesterday,
+          lt: today,
+        },
+        deletedAt: null,
+      },
+      include: {
+        table: true,
+      },
+    });
+
+    // Get yesterday's reservations
+    const yesterdayReservations = await prisma.reservation.count({
+      where: {
+        tenantId,
+        reservationTime: {
+          gte: yesterday,
+          lt: today,
+        },
+      },
+    });
+
+    // Calculate yesterday's metrics
+    const yesterdayOrderCount = yesterdayOrders.length;
+    const yesterdayCustomerCount = yesterdayOrders.reduce((sum, order) => {
+      return sum + (order.table?.capacity || 1);
+    }, 0);
+
+    // Calculate trends based on real data
+    const ordersTrend = calculateTrend(totalOrders, yesterdayOrderCount);
+    const customersTrend = calculateTrend(
+      totalCustomers,
+      yesterdayCustomerCount
+    );
+    const serviceTimeDiff = avgServiceTime - avgHistoricalServiceTime;
+    const serviceTimeTrend =
+      serviceTimeDiff === 0
+        ? "No change from average"
+        : serviceTimeDiff < 0
+          ? `↓ ${Math.abs(serviceTimeDiff)} min from average`
+          : `↑ ${serviceTimeDiff} min from average`;
+
+    // const totalReservations = reservations.length;
+    const reservationsTrend = calculateTrend(
+      totalReservations,
+      yesterdayReservations
     );
 
     return {
-      tableOccupancy: occupiedTables,
-      totalTables,
-      reservationsToday,
-      averageServiceTime,
+      // Metrics
+      totalOrders,
+      ordersTrend,
+      totalCustomers,
+      customersTrend,
+      avgServiceTime,
+      serviceTimeTrend,
+      totalReservations,
+      reservationsTrend,
+
+      // Charts data
+      menuItemPopularity,
       tablesByStatus,
-      menuItemPopularity: formattedMenuItemPopularity,
-      upcomingReservations: formattedUpcomingReservations,
-      turnoverRate,
+      serviceTimeData,
+      turnoverData,
+
+      // Table data
+      upcomingReservations,
     };
   } catch (error) {
     console.error("Error fetching restaurant stats:", error);
     return { error: "Failed to fetch restaurant statistics" };
+  }
+}
+
+// Helper function to calculate trend percentage and direction
+function calculateTrend(current: number, previous: number): string {
+  if (previous === 0) return current > 0 ? "↑ New data" : "No change";
+
+  const percentChange = Math.round(((current - previous) / previous) * 100);
+
+  if (percentChange > 0) {
+    return `↑ ${percentChange}% from yesterday`;
+  } else if (percentChange < 0) {
+    return `↓ ${Math.abs(percentChange)}% from yesterday`;
+  } else {
+    return "No change from yesterday";
   }
 }
 

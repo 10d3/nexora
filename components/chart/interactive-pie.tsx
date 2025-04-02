@@ -90,7 +90,7 @@ export function InteractivePieChart({
 
       formattedData.push({
         name: item.name,
-        value: item.value + 4 + i,
+        value: item.value ,
         fill,
       });
     }
