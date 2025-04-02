@@ -335,7 +335,21 @@ export default function UniversalDashboard() {
           descriptionKey: "serviceTimeSummary",
         },
       ],
-      charts: [], // Empty array instead of undefined
+      charts: [
+        {
+          type: "area",
+          title: "Service Time Trends",
+          description: "Average service duration over time",
+          dataKey: "serviceTimeData",
+          keys: ["time"],
+        },
+        {
+          type: "pie",
+          title: "Staff Utilization",
+          description: "Current staff workload distribution",
+          dataKey: "staffUtilizationChart",
+        },
+      ],
       tables: [
         {
           title: "Appointment Schedule",
@@ -372,7 +386,28 @@ export default function UniversalDashboard() {
           descriptionKey: "claimsSummary",
         },
       ],
-      charts: [], // Empty array instead of undefined
+      charts: [
+        {
+          type: "area",
+          title: "Prescription Trends",
+          description: "Daily prescription volume",
+          dataKey: "prescriptionTrends",
+          keys: ["count"],
+        },
+        {
+          type: "pie",
+          title: "Medication Categories",
+          description: "Distribution by medication type",
+          dataKey: "medicationCategories",
+        },
+        {
+          type: "area",
+          title: "Inventory Levels",
+          description: "Stock levels over time",
+          dataKey: "inventoryTrends",
+          keys: ["level"],
+        },
+      ],
       tables: [
         {
           title: "Prescription Tracking",

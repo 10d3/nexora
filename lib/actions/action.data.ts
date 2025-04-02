@@ -1371,78 +1371,126 @@ export async function getSalonStats(
     const to = dateTo || new Date();
     const from = dateFrom || new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000); // 30 days before
 
-    // Get total appointments
-    const totalAppointments = await prisma.appointment.count({
-      where: {
-        tenantId,
-        startTime: {
-          gte: from,
-          lte: to,
-        },
-      },
-    });
-
-    // Get appointments for today
+    // Get today's date for daily stats
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    const appointmentsToday = await prisma.appointment.count({
-      where: {
-        tenantId,
-        startTime: {
-          gte: today,
-          lt: tomorrow,
-        },
-      },
-    });
+    // Yesterday for trend calculations
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const dayBeforeYesterday = new Date(yesterday);
+    dayBeforeYesterday.setDate(dayBeforeYesterday.getDate() - 1);
 
-    // Get staff availability
-    const staff = await prisma.staff.findMany({
-      where: {
-        tenantId,
-      },
-      include: {
-        appointments: {
-          include: {
-            appointment: true,
+    // Use Promise.all to fetch data in parallel
+    const [
+      totalAppointments,
+      appointmentsToday,
+      yesterdayAppointments,
+      staff,
+      upcomingAppointments,
+      serviceTimeData,
+      repeatCustomerData,
+      staffUtilization,
+    ] = await Promise.all([
+      // Get total appointments for the period
+      prisma.appointment.count({
+        where: {
+          tenantId,
+          startTime: {
+            gte: from,
+            lte: to,
           },
-          where: {
-            appointment: {
-              startTime: {
-                gte: today,
-                lt: tomorrow,
+        },
+      }),
+
+      // Get appointments for today
+      prisma.appointment.count({
+        where: {
+          tenantId,
+          startTime: {
+            gte: today,
+            lt: tomorrow,
+          },
+        },
+      }),
+
+      // Get appointments for yesterday (for trend)
+      prisma.appointment.count({
+        where: {
+          tenantId,
+          startTime: {
+            gte: yesterday,
+            lt: today,
+          },
+        },
+      }),
+
+      // Get staff availability
+      prisma.staff.findMany({
+        where: {
+          tenantId,
+        },
+        include: {
+          appointments: {
+            include: {
+              appointment: true,
+            },
+            where: {
+              appointment: {
+                startTime: {
+                  gte: today,
+                  lt: tomorrow,
+                },
               },
             },
           },
+          services: true,
         },
-        services: true,
-      },
-    });
+      }),
 
-    // Get upcoming appointments
-    const upcomingAppointments = await prisma.appointment.findMany({
-      where: {
-        tenantId,
-        startTime: {
-          gte: new Date(),
-        },
-      },
-      include: {
-        user: true,
-        staffAppointments: {
-          include: {
-            staff: true,
+      // Get upcoming appointments
+      prisma.appointment.findMany({
+        where: {
+          tenantId,
+          startTime: {
+            gte: new Date(),
           },
         },
-      },
-      orderBy: {
-        startTime: "asc",
-      },
-      take: 5,
-    });
+        include: {
+          user: true,
+          staffAppointments: {
+            include: {
+              staff: true,
+            },
+          },
+        },
+        orderBy: {
+          startTime: "asc",
+        },
+        take: 10,
+      }),
 
+      // Get service time data
+      getServiceTimeData(tenantId, from, to),
+
+      // Get customer retention data
+      getCustomerRetentionData(tenantId, from, to),
+
+      // Get staff utilization data
+      getStaffUtilizationData(tenantId, today, tomorrow),
+    ]);
+
+    // Process staff data
+    const availableStaff = staff.filter(
+      (member) => member.appointments.length === 0
+    ).length;
+
+    const totalStaff = staff.length;
+    const staffSummary = `${availableStaff} of ${totalStaff} available today`;
+
+    // Format upcoming appointments
     const formattedUpcomingAppointments = upcomingAppointments.map(
       (appointment) => {
         const time = appointment.startTime;
@@ -1451,35 +1499,237 @@ export async function getSalonStats(
             (1000 * 60)
         );
 
+        // Get service name from the appointment's serviceId
+        const serviceName = appointment.serviceId || "Consultation";
+
         return {
-          time: `${time.getHours()}:${time.getMinutes().toString().padStart(2, "0")} ${time.getHours() >= 12 ? "PM" : "AM"}`,
-          client: appointment.user.name,
-          service: "Service", // You would need to fetch the actual service name
-          stylist: appointment.staffAppointments[0]?.staff.name || "Unassigned",
-          duration: `${duration} min`,
-          status: appointment.status.toLowerCase(),
+          Time: time.toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+          Client: appointment.user?.name || "Walk-in",
+          Service: serviceName,
+          Stylist:
+            appointment.staffAppointments?.[0]?.staff?.name || "Any Available",
+          Duration: `${duration} min`,
         };
       }
     );
 
-    const formattedStaffAvailability = staff.map((member) => ({
-      name: member.name,
-      availability: member.appointments.length > 0 ? "busy" : "available",
-      appointments: member.appointments.length,
-      specialization: member.specialization || "General",
+    // Calculate average service time
+    const avgServiceTime =
+      serviceTimeData.reduce((sum, day) => sum + day.time, 0) /
+        serviceTimeData.length || 0;
+    const serviceTimeSummary = `${Math.round(avgServiceTime)} minutes average`;
+
+    // Calculate customer retention rate (percentage of repeat customers)
+    const customerRetention = repeatCustomerData.retentionRate;
+    const retentionTrend = repeatCustomerData.trend;
+
+    // Calculate appointment trend
+    const appointmentsTrend = calculateTrend(
+      appointmentsToday,
+      yesterdayAppointments
+    );
+
+    // Format staff utilization data for pie chart
+    const staffUtilizationChart = staffUtilization.map((staff) => ({
+      name: staff.name,
+      value: staff.utilization,
     }));
 
     return {
+      // Metrics
       totalAppointments,
       appointmentsToday,
-      staffAvailability: formattedStaffAvailability,
+      appointmentsTrend,
+      availableStaff,
+      staffSummary,
+      customerRetention,
+      retentionTrend,
+      avgServiceTime,
+      serviceTimeSummary,
+
+      // Table data
       upcomingAppointments: formattedUpcomingAppointments,
-      clientRetention: 85, // Placeholder - would need actual calculation
+
+      // Staff utilization
+      staffUtilization,
+
+      // Chart data
+      staffUtilizationChart,
+      serviceTimeData,
     };
   } catch (error) {
     console.error("Error fetching salon stats:", error);
     return { error: "Failed to fetch salon statistics" };
   }
+}
+
+// Helper functions for salon stats
+async function getServiceTimeData(tenantId: string, from: Date, to: Date) {
+  const last7Days = Array.from({ length: 7 }, (_, i) => {
+    const date = new Date();
+    date.setDate(date.getDate() - 6 + i);
+    date.setHours(0, 0, 0, 0);
+    return date;
+  });
+
+  return Promise.all(
+    last7Days.map(async (date) => {
+      const nextDay = new Date(date);
+      nextDay.setDate(nextDay.getDate() + 1);
+
+      // Get completed appointments for the day
+      const appointments = await prisma.appointment.findMany({
+        where: {
+          tenantId,
+          startTime: {
+            gte: date,
+            lt: nextDay,
+          },
+          status: "COMPLETED",
+        },
+        select: {
+          startTime: true,
+          endTime: true,
+        },
+      });
+
+      // Calculate average service time in minutes
+      let totalServiceTime = 0;
+      appointments.forEach((appointment) => {
+        const serviceTime = Math.round(
+          (appointment.endTime.getTime() - appointment.startTime.getTime()) /
+            (1000 * 60)
+        );
+        totalServiceTime += serviceTime;
+      });
+
+      const avgTime =
+        appointments.length > 0
+          ? Math.round(totalServiceTime / appointments.length)
+          : 0;
+
+      return {
+        date: date.toISOString().split("T")[0],
+        time: avgTime,
+      };
+    })
+  );
+}
+
+async function getCustomerRetentionData(
+  tenantId: string,
+  from: Date,
+  to: Date
+) {
+  // Get all appointments in the period
+  const appointments = await prisma.appointment.findMany({
+    where: {
+      tenantId,
+      startTime: {
+        gte: from,
+        lte: to,
+      },
+    },
+    select: {
+      customerId: true,
+    },
+  });
+
+  // Count unique customers
+  const uniqueCustomers = new Set(appointments.map((a) => a.customerId)).size;
+
+  // Count customers with multiple appointments
+  const customerCounts: Record<string, number> = {};
+  appointments.forEach((appointment) => {
+    customerCounts[appointment.customerId] =
+      (customerCounts[appointment.customerId] || 0) + 1;
+  });
+
+  const repeatCustomers = Object.values(customerCounts).filter(
+    (count) => count > 1
+  ).length;
+
+  // Calculate retention rate
+  const retentionRate =
+    uniqueCustomers > 0
+      ? Math.round((repeatCustomers / uniqueCustomers) * 100)
+      : 0;
+
+  // For trend, we'll use a placeholder since we don't have historical data
+  const trend =
+    retentionRate > 75
+      ? "↑ Strong retention"
+      : retentionRate > 50
+        ? "→ Stable retention"
+        : "↓ Needs improvement";
+
+  return {
+    retentionRate,
+    trend,
+    uniqueCustomers,
+    repeatCustomers,
+  };
+}
+
+async function getStaffUtilizationData(
+  tenantId: string,
+  today: Date,
+  tomorrow: Date
+) {
+  // Get all staff with their appointments for today
+  const staffWithAppointments = await prisma.staff.findMany({
+    where: {
+      tenantId,
+    },
+    include: {
+      appointments: {
+        where: {
+          appointment: {
+            startTime: {
+              gte: today,
+              lt: tomorrow,
+            },
+          },
+        },
+        include: {
+          appointment: true,
+        },
+      },
+      services: true,
+    },
+  });
+
+  // Calculate utilization for each staff member
+  return staffWithAppointments.map((staff) => {
+    // Calculate total minutes booked
+    let totalMinutesBooked = 0;
+    staff.appointments.forEach((staffAppointment) => {
+      const appointment = staffAppointment.appointment;
+      const duration = Math.round(
+        (appointment.endTime.getTime() - appointment.startTime.getTime()) /
+          (1000 * 60)
+      );
+      totalMinutesBooked += duration;
+    });
+
+    // Assuming 8-hour workday (480 minutes)
+    const workdayMinutes = 480;
+    const utilization = Math.min(
+      100,
+      Math.round((totalMinutesBooked / workdayMinutes) * 100)
+    );
+
+    return {
+      name: staff.name,
+      appointments: staff.appointments.length,
+      utilization,
+      status: staff.appointments.length > 0 ? "busy" : "available",
+      services: staff.services.length,
+    };
+  });
 }
 
 // Pharmacy-specific actions
@@ -1493,114 +1743,320 @@ export async function getPharmacyStats(
     const to = dateTo || new Date();
     const from = dateFrom || new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000); // 30 days before
 
-    // Get total prescriptions
-    const totalPrescriptions = await prisma.prescription.count({
-      where: {
-        tenantId,
-        createdAt: {
-          // Changed from issueDate to createdAt
-          gte: from,
-          lte: to,
-        },
-      },
-    });
+    // Get today's date for daily stats
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
 
-    // Get medications that are expiring soon (within 30 days)
+    // Yesterday for trend calculations
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    // Get expiry threshold date (30 days from now)
     const thirtyDaysFromNow = new Date();
     thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
 
-    const expiringMedications = await prisma.inventory.count({
-      where: {
-        tenantId,
-        expiryDate: {
-          lte: thirtyDaysFromNow,
-          gt: new Date(),
-        },
-      },
-    });
-
-    // Get low stock medications
+    // Low stock threshold
     const lowStockThreshold = 10;
-    const lowStockMedications = await prisma.product.count({
-      where: {
-        tenantId,
-        stockQty: {
-          lt: lowStockThreshold,
-        },
-        medication: {
-          isNot: null,
-        },
-      },
-    });
 
-    // Get recent prescriptions
-    const recentPrescriptions = await prisma.prescription.findMany({
-      where: {
-        tenantId,
-      },
-      include: {
-        medication: true, // Include the medication directly
-        patient: true, // Include the patient
-        prescribedBy: true, // Include the prescriber
-      },
-      orderBy: {
-        createdAt: "desc", // Changed from issueDate to createdAt
-      },
-      take: 5,
-    });
+    // Use Promise.all to fetch data in parallel
+    const [
+      totalPrescriptions,
+      prescriptionsToday,
+      yesterdayPrescriptions,
+      inventoryItems,
+      expiringMedicationsCount,
+      lowStockMedications,
+      insuranceClaims,
+      recentPrescriptions,
+      expiringMedicationsList,
+      prescriptionTrendsData,
+      medicationCategoriesData,
+      inventoryTrendsData,
+    ] = await Promise.all([
+      // Get total prescriptions for the period
+      prisma.prescription.count({
+        where: {
+          tenantId,
+          createdAt: {
+            gte: from,
+            lte: to,
+          },
+        },
+      }),
 
-    const formattedRecentPrescriptions = recentPrescriptions.map(
+      // Get prescriptions for today
+      prisma.prescription.count({
+        where: {
+          tenantId,
+          createdAt: {
+            gte: today,
+            lt: tomorrow,
+          },
+        },
+      }),
+
+      // Get prescriptions for yesterday (for trend)
+      prisma.prescription.count({
+        where: {
+          tenantId,
+          createdAt: {
+            gte: yesterday,
+            lt: today,
+          },
+        },
+      }),
+
+      // Get total inventory items
+      prisma.product.count({
+        where: {
+          tenantId,
+          medication: {
+            isNot: null,
+          },
+        },
+      }),
+
+      // Get medications that are expiring soon (within 30 days)
+      prisma.inventory.count({
+        where: {
+          tenantId,
+          expiryDate: {
+            lte: thirtyDaysFromNow,
+            gt: new Date(),
+          },
+        },
+      }),
+
+      // Get low stock medications
+      prisma.product.count({
+        where: {
+          tenantId,
+          stockQty: {
+            lt: lowStockThreshold,
+          },
+          medication: {
+            isNot: null,
+          },
+        },
+      }),
+
+      // Get insurance claims count (placeholder - adjust based on your schema)
+      prisma.prescription.count({
+        where: {
+          tenantId,
+          createdAt: {
+            gte: from,
+            lte: to,
+          },
+          // Add insurance-related filter if available in your schema
+        },
+      }),
+
+      // Get recent prescriptions
+      prisma.prescription.findMany({
+        where: {
+          tenantId,
+        },
+        include: {
+          medication: true,
+          patient: true,
+          prescribedBy: true,
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+        take: 5,
+      }),
+
+      // Get expiring medications list
+      prisma.inventory.findMany({
+        where: {
+          tenantId,
+          expiryDate: {
+            lte: thirtyDaysFromNow,
+            gt: new Date(),
+          },
+        },
+        include: {
+          product: true,
+        },
+        take: 5,
+      }),
+
+      // Get prescription trends data (last 30 days)
+      getPrescriptionTrendsData(tenantId, from, to),
+
+      // Get medication categories data
+      getMedicationCategoriesData(tenantId),
+
+      // Get inventory trends data
+      getInventoryTrendsData(tenantId, from, to),
+    ]);
+
+    // Format recent prescriptions for table display
+    const prescriptionTracking = recentPrescriptions.map(
       (prescription, index) => ({
-        id: prescription.id.substring(0, 7).toUpperCase(),
-        patient: prescription.patient.name || "Unknown Patient",
-        medication: prescription.medication?.name || "Multiple medications",
-        status: ["ready", "processing", "pending", "ready"][index % 4],
-        date: prescription.createdAt.toLocaleDateString(), // Changed from issueDate to createdAt
+        "Rx #": prescription.id.substring(0, 7).toUpperCase(),
+        Patient: prescription.patient.name || "Unknown Patient",
+        Medication: prescription.medication?.name || "Multiple medications",
+        Status: ["ready", "processing", "pending", "ready"][index % 4],
+        Date: prescription.createdAt.toLocaleDateString(),
       })
     );
 
-    // Get expiring medications list
-    const expiringMedicationsList = await prisma.inventory.findMany({
-      where: {
-        tenantId,
-        expiryDate: {
-          lte: thirtyDaysFromNow,
-          gt: new Date(),
-        },
-      },
-      include: {
-        product: true,
-      },
-      take: 5,
+    // Format expiring medications for table display
+    const expiringMedications = expiringMedicationsList.map((inventory) => {
+      const daysToExpiry = Math.ceil(
+        (inventory.expiryDate!.getTime() - new Date().getTime()) /
+          (1000 * 60 * 60 * 24)
+      );
+
+      return {
+        Medication: inventory.product.name,
+        Stock: inventory.product.stockQty,
+        Expiry: `${daysToExpiry} days`,
+        Reorder: inventory.product.stockQty < lowStockThreshold ? "Yes" : "No",
+      };
     });
 
-    const formattedExpiringMedications = expiringMedicationsList.map(
-      (inventory) => {
-        const daysToExpiry = Math.ceil(
-          (inventory.expiryDate!.getTime() - new Date().getTime()) /
-            (1000 * 60 * 60 * 24)
-        );
-
-        return {
-          name: inventory.product.name,
-          stock: inventory.product.stockQty,
-          expiry: `${daysToExpiry} days`,
-          reorder: inventory.product.stockQty < lowStockThreshold,
-        };
-      }
+    // Calculate trends
+    const prescriptionsTrend = calculateTrend(
+      prescriptionsToday,
+      yesterdayPrescriptions
     );
 
+    // Format summary descriptions
+    const prescriptionsSummary = `${prescriptionsTrend} from yesterday`;
+    const inventorySummary = `${lowStockMedications} items low on stock`;
+    const expiringSummary = `${expiringMedicationsCount} medications expiring soon`;
+    const claimsSummary = `${insuranceClaims} claims this month`;
+
     return {
+      // Metrics
       totalPrescriptions,
+      prescriptionsToday,
+      prescriptionsSummary,
+      inventoryItems,
+      inventorySummary,
+      expiringSoon: expiringMedicationsCount,
+      expiringSummary,
+      insuranceClaims,
+      claimsSummary,
+
+      // Table data
+      prescriptionTracking,
       expiringMedications,
-      lowStockMedications,
-      prescriptionTracking: formattedRecentPrescriptions,
-      expiringMedicationsList: formattedExpiringMedications,
+
+      // Chart data
+      prescriptionTrends: prescriptionTrendsData,
+      medicationCategories: medicationCategoriesData,
+      inventoryTrends: inventoryTrendsData,
     };
   } catch (error) {
     console.error("Error fetching pharmacy stats:", error);
     return { error: "Failed to fetch pharmacy statistics" };
   }
+}
+
+// Helper function to get prescription trends data
+async function getPrescriptionTrendsData(
+  tenantId: string,
+  from: Date,
+  to: Date
+) {
+  const days = 30;
+  const datePoints = Array.from({ length: days }, (_, i) => {
+    const date = new Date(to);
+    date.setDate(date.getDate() - (days - 1) + i);
+    date.setHours(0, 0, 0, 0);
+    return date;
+  });
+
+  return Promise.all(
+    datePoints.map(async (date) => {
+      const nextDay = new Date(date);
+      nextDay.setDate(nextDay.getDate() + 1);
+
+      const count = await prisma.prescription.count({
+        where: {
+          tenantId,
+          createdAt: {
+            gte: date,
+            lt: nextDay,
+          },
+        },
+      });
+
+      return {
+        date: date.toISOString().split("T")[0],
+        count,
+      };
+    })
+  );
+}
+
+// Helper function to get medication categories data
+async function getMedicationCategoriesData(tenantId: string) {
+  // This is a placeholder - you'll need to adjust based on your actual schema
+  // If you don't have medication categories, you could group by form or manufacturer
+  const medications = await prisma.medication.findMany({
+    where: {
+      tenantId,
+    },
+    select: {
+      form: true,
+    },
+  });
+
+  // Group medications by form
+  const formCounts: Record<string, number> = {};
+  medications.forEach((med) => {
+    const form = med.form || "Unknown";
+    formCounts[form] = (formCounts[form] || 0) + 1;
+  });
+
+  // Convert to array format for pie chart
+  return Object.entries(formCounts).map(([name, value]) => ({
+    name,
+    value,
+  }));
+}
+
+// Helper function to get inventory trends data
+async function getInventoryTrendsData(tenantId: string, from: Date, to: Date) {
+  const days = 30;
+  const datePoints = Array.from({ length: days }, (_, i) => {
+    const date = new Date(to);
+    date.setDate(date.getDate() - (days - 1) + i);
+    date.setHours(0, 0, 0, 0);
+    return date;
+  });
+
+  // This is a simplified approach - in a real system you'd track inventory changes over time
+  return Promise.all(
+    datePoints.map(async (date) => {
+      // For this example, we'll just count products with stock below threshold on each date
+      // In a real system, you'd query historical inventory data
+      const level = await prisma.product.count({
+        where: {
+          tenantId,
+          medication: {
+            isNot: null,
+          },
+          stockQty: {
+            lt: 20, // Using a higher threshold for visualization
+          },
+        },
+      });
+
+      return {
+        date: date.toISOString().split("T")[0],
+        level,
+      };
+    })
+  );
 }
 
 // Cybercafe-specific actions
