@@ -2177,166 +2177,388 @@ export async function getSupermarketStats(
     const to = dateTo || new Date();
     const from = dateFrom || new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000); // 30 days before
 
-    // Get total sales for the period
-    const salesData = await prisma.order.aggregate({
-      where: {
-        tenantId,
-        createdAt: {
-          gte: from,
-          lte: to,
-        },
-        deletedAt: null,
-      },
-      _sum: {
-        total: true,
-      },
-      _count: true,
-    });
-
-    // Get today's sales
+    // Get today's date for daily stats
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    const todaySales = await prisma.order.aggregate({
-      where: {
-        tenantId,
-        createdAt: {
-          gte: today,
-          lt: tomorrow,
-        },
-        deletedAt: null,
-      },
-      _sum: {
-        total: true,
-      },
-      _count: true,
-    });
+    // Yesterday for trend calculations
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
 
-    // Get inventory stats
-    const inventoryStats = await prisma.product.aggregate({
-      where: {
-        tenantId,
-        deletedAt: null,
-      },
-      _count: true,
-      _sum: {
-        stockQty: true,
-      },
-    });
-
-    // Get low stock items
+    // Low stock threshold
     const lowStockThreshold = 10;
-    const lowStockItems = await prisma.product.count({
-      where: {
-        tenantId,
-        stockQty: {
-          lt: lowStockThreshold,
-        },
-        deletedAt: null,
-      },
-    });
 
-    // Get department performance
-    const departments = await prisma.department.findMany({
-      where: {
-        tenantId,
-      },
-      include: {
-        products: {
-          where: {
-            deletedAt: null,
+    // Use Promise.all to fetch data in parallel
+    const [
+      // Sales data
+      salesToday,
+      salesYesterday,
+      totalSales,
+
+      // Transaction data
+      transactionsToday,
+      transactionsYesterday,
+
+      // Inventory data
+      inventoryItems,
+      lowStockItems,
+
+      // Delivery data
+      deliveriesToday,
+
+      // Department data
+      departments,
+
+      // Product data
+      topSellingProducts,
+
+      // Chart data
+      salesTrendsData,
+      departmentSalesData,
+      inventoryTrendsData,
+    ] = await Promise.all([
+      // Get sales for today
+      prisma.order.aggregate({
+        where: {
+          tenantId,
+          createdAt: {
+            gte: today,
+            lt: tomorrow,
           },
-          include: {
-            orderItems: {
-              where: {
-                order: {
-                  createdAt: {
-                    gte: from,
-                    lte: to,
+          status: "COMPLETED",
+        },
+        _sum: {
+          total: true,
+        },
+      }),
+
+      // Get sales for yesterday (for trend)
+      prisma.order.aggregate({
+        where: {
+          tenantId,
+          createdAt: {
+            gte: yesterday,
+            lt: today,
+          },
+          status: "COMPLETED",
+        },
+        _sum: {
+          total: true,
+        },
+      }),
+
+      // Get total sales for the period
+      prisma.order.aggregate({
+        where: {
+          tenantId,
+          createdAt: {
+            gte: from,
+            lte: to,
+          },
+          status: "COMPLETED",
+        },
+        _sum: {
+          total: true,
+        },
+      }),
+
+      // Get transactions for today
+      prisma.order.count({
+        where: {
+          tenantId,
+          createdAt: {
+            gte: today,
+            lt: tomorrow,
+          },
+        },
+      }),
+
+      // Get transactions for yesterday (for trend)
+      prisma.order.count({
+        where: {
+          tenantId,
+          createdAt: {
+            gte: yesterday,
+            lt: today,
+          },
+        },
+      }),
+
+      // Get total inventory items
+      prisma.product.count({
+        where: {
+          tenantId,
+        },
+      }),
+
+      // Get low stock items
+      prisma.product.count({
+        where: {
+          tenantId,
+          stockQty: {
+            lt: lowStockThreshold,
+          },
+        },
+      }),
+
+      // Get deliveries for today
+      prisma.delivery.count({
+        where: {
+          tenantId,
+          scheduledDate: {
+            gte: today,
+            lt: tomorrow,
+          },
+        },
+      }),
+
+      // Get departments with sales data
+      prisma.department.findMany({
+        where: {
+          tenantId,
+        },
+        include: {
+          products: {
+            include: {
+              orderItems: {
+                where: {
+                  order: {
+                    createdAt: {
+                      gte: from,
+                      lte: to,
+                    },
+                    status: "COMPLETED",
                   },
-                  deletedAt: null,
                 },
-              },
-              select: {
-                quantity: true,
-                price: true,
+                include: {
+                  order: true,
+                },
               },
             },
           },
         },
-      },
-    });
+      }),
 
-    // Calculate department sales
-    const departmentPerformance = departments.map((dept) => {
-      const sales = dept.products.reduce((total, product) => {
-        const productSales = product.orderItems.reduce(
-          (sum, item) => sum + item.price * item.quantity,
-          0
-        );
-        return total + productSales;
-      }, 0);
+      // Get top selling products
+      prisma.product.findMany({
+        where: {
+          tenantId,
+          orderItems: {
+            some: {
+              order: {
+                createdAt: {
+                  gte: from,
+                  lte: to,
+                },
+                status: "COMPLETED",
+              },
+            },
+          },
+        },
+        include: {
+          orderItems: {
+            where: {
+              order: {
+                createdAt: {
+                  gte: from,
+                  lte: to,
+                },
+                status: "COMPLETED",
+              },
+            },
+            include: {
+              order: true,
+            },
+          },
+          department: true,
+        },
+        orderBy: {
+          orderItems: {
+            _count: "desc",
+          },
+        },
+        take: 10,
+      }),
 
-      // Generate random target for demo purposes
-      // In a real app, you would fetch actual targets from the database
-      const target = Math.floor(Math.random() * 5000) + 3000;
-      const progress = Math.min(100, Math.round((sales / target) * 100));
+      // Get sales trends data (last 30 days)
+      getSalesTrendsData(tenantId, from, to),
+
+      // Get department sales data
+      getDepartmentSalesData(tenantId, from, to),
+
+      // Get inventory trends data
+      getInventoryTrendsData(tenantId, from, to),
+    ]);
+
+    // Calculate sales values
+    const todaySalesAmount = salesToday._sum.total || 0;
+    const yesterdaySalesAmount = salesYesterday._sum.total || 0;
+    const totalSalesAmount = totalSales._sum.total || 0;
+
+    // Calculate trends
+    const salesTrend = calculateTrend(todaySalesAmount, yesterdaySalesAmount);
+    const transactionsTrend = calculateTrend(
+      transactionsToday,
+      transactionsYesterday
+    );
+
+    // Format department performance data
+    const departmentPerformance = departments.map((department) => {
+      // Calculate total sales for this department
+      let departmentSales = 0;
+      department.products.forEach((product) => {
+        product.orderItems.forEach((item) => {
+          departmentSales += item.price * item.quantity;
+        });
+      });
+
+      // Set a target based on historical data (this is a placeholder)
+      const target = departmentSales * 1.1; // 10% higher than current sales
+      const progress = Math.min(
+        100,
+        Math.round((departmentSales / target) * 100)
+      );
 
       return {
-        department: dept.name,
-        sales: sales.toFixed(2),
-        target: target.toFixed(2),
-        progress,
+        Department: department.name,
+        Sales: `$${departmentSales.toFixed(2)}`,
+        Target: `$${target.toFixed(2)}`,
+        Progress: {
+          status:
+            progress > 90 ? "on-track" : progress > 70 ? "at-risk" : "delayed",
+          label: `${progress}%`,
+        },
       };
     });
 
-    // Get active promotions
-    const activePromotions = await prisma.promotion.count({
-      where: {
-        tenantId,
-        startDate: { lte: new Date() },
-        endDate: { gte: new Date() },
-      },
+    // Format top selling products
+    const formattedTopSellingProducts = topSellingProducts.map((product) => {
+      let unitsSold = 0;
+      let revenue = 0;
+
+      product.orderItems.forEach((item) => {
+        unitsSold += item.quantity;
+        revenue += item.price * item.quantity;
+      });
+
+      return {
+        Product: product.name,
+        Department: product.department?.name || "Uncategorized",
+        "Units Sold": unitsSold,
+        Revenue: `$${revenue.toFixed(2)}`,
+      };
     });
 
-    // Get scheduled deliveries
-    const deliveriesToday = await prisma.inventoryMovement.count({
-      where: {
-        tenantId,
-        type: "PURCHASE",
-        createdAt: {
-          gte: today,
-          lt: tomorrow,
-        },
-      },
-    });
+    // Format summary descriptions
+    const salesSummary = `${salesTrend} from yesterday`;
+    const transactionsSummary = `${transactionsTrend} from yesterday`;
+    const inventorySummary = `${lowStockItems} items low on stock`;
+    const deliveriesSummary = `${deliveriesToday} deliveries scheduled`;
 
     return {
-      // Today's metrics
-      salesToday: todaySales._sum.total || 0,
-      salesTrend: "Up 12% from last week",
-      transactionsToday: todaySales._count || 0,
-      transactionsTrend: "Down 3% from yesterday",
-
-      // Inventory metrics
-      inventoryItems: inventoryStats._count || 0,
-      inventorySummary: `${lowStockItems} items below threshold`,
-
-      // Delivery metrics
+      // Metrics
+      salesToday: `$${todaySalesAmount.toFixed(2)}`,
+      salesTrend: salesSummary,
+      transactionsToday,
+      transactionsTrend: transactionsSummary,
+      inventoryItems,
+      inventorySummary,
       deliveriesToday,
-      deliveriesSummary: `${deliveriesToday} deliveries scheduled today`,
+      deliveriesSummary,
 
-      // Department performance data
+      // Table data
       departmentPerformance,
+      topSellingProducts: formattedTopSellingProducts,
 
-      // Additional metrics
-      activePromotions,
-      lowStockItems,
+      // Chart data
+      salesTrends: salesTrendsData,
+      departmentSales: departmentSalesData,
+      inventoryTrends: inventoryTrendsData,
     };
   } catch (error) {
     console.error("Error fetching supermarket stats:", error);
     return { error: "Failed to fetch supermarket statistics" };
   }
+}
+
+// Helper function to get sales trends data
+async function getSalesTrendsData(tenantId: string, from: Date, to: Date) {
+  const days = 30;
+  const datePoints = Array.from({ length: days }, (_, i) => {
+    const date = new Date(to);
+    date.setDate(date.getDate() - (days - 1) + i);
+    date.setHours(0, 0, 0, 0);
+    return date;
+  });
+
+  return Promise.all(
+    datePoints.map(async (date) => {
+      const nextDay = new Date(date);
+      nextDay.setDate(nextDay.getDate() + 1);
+
+      const result = await prisma.order.aggregate({
+        where: {
+          tenantId,
+          createdAt: {
+            gte: date,
+            lt: nextDay,
+          },
+          status: "COMPLETED",
+        },
+        _sum: {
+          total: true,
+        },
+      });
+
+      return {
+        date: date.toISOString().split("T")[0],
+        amount: result._sum.total || 0,
+      };
+    })
+  );
+}
+
+// Helper function to get department sales data
+async function getDepartmentSalesData(tenantId: string, from: Date, to: Date) {
+  const departments = await prisma.department.findMany({
+    where: {
+      tenantId,
+    },
+    include: {
+      products: {
+        include: {
+          orderItems: {
+            where: {
+              order: {
+                createdAt: {
+                  gte: from,
+                  lte: to,
+                },
+                status: "COMPLETED",
+              },
+            },
+            include: {
+              order: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  return departments.map((department) => {
+    let totalSales = 0;
+    department.products.forEach((product) => {
+      product.orderItems.forEach((item) => {
+        totalSales += item.price * item.quantity;
+      });
+    });
+
+    return {
+      name: department.name,
+      value: totalSales,
+    };
+  });
 }

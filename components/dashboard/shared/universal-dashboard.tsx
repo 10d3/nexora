@@ -444,7 +444,28 @@ export default function UniversalDashboard() {
           descriptionKey: "deliveriesSummary",
         },
       ],
-      charts: [], // Empty array instead of undefined
+      charts: [
+        {
+          type: "area",
+          title: "Sales Trends",
+          description: "Daily sales volume",
+          dataKey: "salesTrends",
+          keys: ["amount"],
+        },
+        {
+          type: "pie",
+          title: "Department Sales",
+          description: "Sales distribution by department",
+          dataKey: "departmentSales",
+        },
+        {
+          type: "area",
+          title: "Inventory Levels",
+          description: "Stock levels over time",
+          dataKey: "inventoryTrends",
+          keys: ["level"],
+        },
+      ],
       tables: [
         {
           title: "Department Performance",

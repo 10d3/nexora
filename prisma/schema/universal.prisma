@@ -31,6 +31,7 @@ model Order {
     tenantId          String
     tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
     orderItems        OrderItem[]
+    delivery          Delivery?
     creditTransaction CreditTransaction?
     refunds           Refund[]
     createdAt         DateTime           @default(now())

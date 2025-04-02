@@ -71,6 +71,9 @@ model Tenant {
     inventoryMovements InventoryMovement[]
     refunds            Refund[]
 
+    // delivery system relationships
+    deliveries Delivery[]
+
     // Settings
     settings Settings?
 
