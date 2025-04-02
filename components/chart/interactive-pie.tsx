@@ -45,6 +45,8 @@ export function InteractivePieChart({
   const id = React.useId();
   const [activeItem, setActiveItem] = React.useState<string | null>(null);
 
+  console.log("data from pie chart", data);
+
   // Set the first item as active by default when data loads
   React.useEffect(() => {
     if (data?.length && !activeItem) {

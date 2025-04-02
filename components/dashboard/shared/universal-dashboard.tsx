@@ -161,7 +161,15 @@ export default function UniversalDashboard() {
     fetchDashboardData();
   }, [businessType, tenantId, dateRange]);
 
-  console.log(dashboardData); // Add this line to log the dashboardData to the console
+  console.log("dashboardData", dashboardData); // Add this line to log the dashboardData to the console
+
+  const getDataValue = (key: string, defaultValue: any = []) => {
+    if (!dashboardData || typeof dashboardData !== "object")
+      return defaultValue;
+    console.log("key", key);
+    console.log("Sucessful ", dashboardData[key]);
+    return key in dashboardData ? dashboardData[key] : defaultValue;
+  };
 
   // Business-specific dashboard configurations
   const dashboardConfig: BusinessDashboardConfigs = {
@@ -197,22 +205,29 @@ export default function UniversalDashboard() {
         {
           type: "pie",
           title: "Menu Item Popularity",
-          description: "Most ordered items",
+          description: "Most popular items ordered",
           dataKey: "menuItemPopularity",
         },
         {
           type: "area",
-          title: "Service Time Trend",
-          description: "Average service time in minutes",
+          title: "Average Service Time",
+          description: "Time from order to delivery",
           dataKey: "serviceTimeData",
           keys: ["time"],
+        },
+        {
+          type: "area",
+          title: "Table Turnover Rate",
+          description: "Tables served per hour",
+          dataKey: "turnoverData",
+          keys: ["rate"],
         },
       ],
       tables: [
         {
           title: "Current Reservations",
-          columns: ["Time", "Party Name", "Party Size", "Table", "Status"],
-          dataKey: "currentReservations",
+          columns: ["Party Name", "Time", "Party Size", "Table", "Status"],
+          dataKey: "upcomingReservations",
         },
       ],
     },
@@ -543,10 +558,7 @@ export default function UniversalDashboard() {
       {config.charts && config.charts.length > 0 && (
         <div className="grid gap-4 md:grid-cols-2">
           {config.charts.map((chart, index) => {
-            const chartData =
-              dashboardData && chart.dataKey
-                ? dashboardData[chart.dataKey] || []
-                : [];
+            const chartData = getDataValue(chart.dataKey, []);
 
             if (chart.type === "pie") {
               return (
@@ -585,10 +597,11 @@ export default function UniversalDashboard() {
       {config.tables && config.tables.length > 0 && (
         <div className="grid gap-4 md:grid-cols-1">
           {config.tables.map((table, index) => {
-            const tableData =
-              dashboardData && table.dataKey
-                ? dashboardData[table.dataKey] || []
-                : [];
+            // const tableData =
+            //   dashboardData && table.dataKey
+            //     ? dashboardData[table.dataKey] || []
+            //     : [];
+            const tableData = getDataValue(table.dataKey, []);
 
             return (
               <Card key={index}>
