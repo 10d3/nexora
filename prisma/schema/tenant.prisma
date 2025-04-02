@@ -78,6 +78,7 @@ model Tenant {
     site Site?
 
     @@index([businessType])
+    RoomType RoomType[]
 }
 
 model Member {
