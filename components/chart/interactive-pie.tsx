@@ -72,8 +72,10 @@ export function InteractivePieChart({
       };
     });
 
-    return config;
+    return config satisfies ChartConfig;
   }, [data]);
+
+  console.log("chart config", chartConfig);
 
   if (isLoading) {
     return (

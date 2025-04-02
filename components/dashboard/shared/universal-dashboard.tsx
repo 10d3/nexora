@@ -2,7 +2,13 @@
 "use client";
 
 import { useDashboard } from "@/context/dashboard-provider";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -207,6 +213,12 @@ export default function UniversalDashboard() {
           title: "Menu Item Popularity",
           description: "Most popular items ordered",
           dataKey: "menuItemPopularity",
+        },
+        {
+          type: "pie",
+          title: "Table Status",
+          description: "Current table availability",
+          dataKey: "tablesByStatus",
         },
         {
           type: "area",
@@ -560,7 +572,17 @@ export default function UniversalDashboard() {
           {config.charts.map((chart, index) => {
             const chartData = getDataValue(chart.dataKey, []);
 
-            if (chart.type === "pie") {
+            console.log(`Rendering chart: ${chart.title}`, {
+              type: chart.type,
+              dataKey: chart.dataKey,
+              data: chartData,
+            });
+
+            if (
+              chart.type === "pie" &&
+              Array.isArray(chartData) &&
+              chartData.length > 0
+            ) {
               return (
                 <InteractivePieChart
                   key={index}
@@ -571,7 +593,11 @@ export default function UniversalDashboard() {
                   error={null}
                 />
               );
-            } else if (chart.type === "area") {
+            } else if (
+              chart.type === "area" &&
+              Array.isArray(chartData) &&
+              chartData.length > 0
+            ) {
               return (
                 <InteractiveAreaChart
                   key={index}
@@ -588,7 +614,21 @@ export default function UniversalDashboard() {
                 />
               );
             }
-            return null;
+
+            // If we get here, show a placeholder for empty data
+            return (
+              <Card key={index}>
+                <CardHeader>
+                  <CardTitle>{chart.title}</CardTitle>
+                  <CardDescription>{chart.description}</CardDescription>
+                </CardHeader>
+                <CardContent className="flex items-center justify-center py-10">
+                  <p className="text-muted-foreground">
+                    No data available for this chart
+                  </p>
+                </CardContent>
+              </Card>
+            );
           })}
         </div>
       )}
