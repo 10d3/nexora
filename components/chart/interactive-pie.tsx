@@ -65,10 +65,14 @@ export function InteractivePieChart({
   const chartConfig = React.useMemo(() => {
     const config: ChartConfig = {};
 
-    data.forEach((item) => {
+    config.visitors = {
+      label: "Tables",
+    };
+
+    data.forEach((item, index) => {
       config[item.name] = {
         label: item.name.charAt(0).toUpperCase() + item.name.slice(1),
-        color: item.fill || `hsl(${Math.random() * 360}, 70%, 50%)`,
+        color: item.fill || `hsl(var(--chart-${index + 1}))`,
       };
     });
 
@@ -76,6 +80,25 @@ export function InteractivePieChart({
   }, [data]);
 
   console.log("chart config", chartConfig);
+
+  const dataFormatted = React.useMemo(() => {
+    const formattedData = [];
+
+    for (let i = 0; i < data.length; i++) {
+      const item = data[i];
+      const fill = item.fill || `hsl(var(--chart-${i + 1}))`;
+
+      formattedData.push({
+        name: item.name,
+        value: item.value + 4 + i,
+        fill,
+      });
+    }
+
+    return formattedData;
+  }, [data]);
+
+  console.log("data formatted", dataFormatted);
 
   if (isLoading) {
     return (
@@ -178,7 +201,7 @@ export function InteractivePieChart({
               content={<ChartTooltipContent hideLabel />}
             />
             <Pie
-              data={data}
+              data={dataFormatted}
               dataKey="value"
               nameKey="name"
               innerRadius={60}
@@ -214,7 +237,7 @@ export function InteractivePieChart({
                           className="fill-foreground text-3xl font-bold"
                         >
                           {activeIndex >= 0
-                            ? data[activeIndex].value.toLocaleString()
+                            ? dataFormatted[activeIndex].value.toLocaleString()
                             : 0}
                         </tspan>
                         <tspan
@@ -222,7 +245,7 @@ export function InteractivePieChart({
                           y={(viewBox.cy || 0) + 24}
                           className="fill-muted-foreground"
                         >
-                          {activeIndex >= 0 ? data[activeIndex].name : ""}
+                          {activeIndex >= 0 ? dataFormatted[activeIndex].name : ""}
                         </tspan>
                       </text>
                     );

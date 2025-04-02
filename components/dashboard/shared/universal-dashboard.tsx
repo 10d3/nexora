@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { DataCard } from "./data-card";
-import { InteractivePieChart } from "@/components/chart/interactive-pie";
+// import { InteractivePieChart } from "@/components/chart/interactive-pie";
 import { InteractiveAreaChart } from "@/components/chart/area-chart";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState, useEffect } from "react";
@@ -41,6 +41,7 @@ import {
   FileText,
 } from "lucide-react";
 import { LucideIcon } from "lucide-react";
+import { PieTest } from "@/components/chart/pie";
 
 // Define types for our dashboard configuration
 interface MetricConfig {
@@ -584,7 +585,7 @@ export default function UniversalDashboard() {
               chartData.length > 0
             ) {
               return (
-                <InteractivePieChart
+                <PieTest
                   key={index}
                   title={chart.title}
                   description={chart.description}
