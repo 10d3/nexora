@@ -22,7 +22,7 @@ import { DataCard } from "./data-card";
 // import { InteractivePieChart } from "@/components/chart/interactive-pie";
 import { InteractiveAreaChart } from "@/components/chart/area-chart";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   Utensils,
   Users,
@@ -42,6 +42,13 @@ import {
 } from "lucide-react";
 import { LucideIcon } from "lucide-react";
 import { PieTest } from "@/components/chart/pie";
+
+// Import React Query hooks
+import { useRestaurantStats } from "@/hooks/stats/use-restaurant-stats";
+import { useHotelStats } from "@/hooks/stats/use-hotel-stats";
+import { usePharmacyStats } from "@/hooks/stats/use-pharmacy-stats";
+import { useConstructionStats } from "@/hooks/stats/use-construction-stats";
+import { UseQueryResult } from "@tanstack/react-query";
 
 // Define types for our dashboard configuration
 interface MetricConfig {
@@ -72,109 +79,96 @@ interface BusinessDashboardConfig {
   tables?: TableConfig[];
 }
 
+// Define a type for dashboard data to fix indexing issues
+interface DashboardData {
+  [key: string]: any;
+}
+
 type BusinessDashboardConfigs = Record<string, BusinessDashboardConfig>;
 
 // Universal Dashboard Component
 export default function UniversalDashboard() {
   const { businessType, tenantId, dateRange } = useDashboard();
-  const [dashboardData, setDashboardData] = useState<Record<string, any>>({});
-  const [isLoading, setIsLoading] = useState(true);
+  const [dashboardData, setDashboardData] = useState<DashboardData>({});
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Get business-specific stats based on business type
+  // Always declare hooks at the top level, even if we don't use them all
+  const restaurantStatsQuery = useRestaurantStats(
+    tenantId as string,
+    dateRange.from,
+    dateRange.to
+  );
+  const hotelStatsQuery = useHotelStats(
+    tenantId as string,
+    dateRange.from,
+    dateRange.to
+  );
+  const pharmacyStatsQuery = usePharmacyStats(
+    tenantId as string,
+    dateRange.from,
+    dateRange.to
+  );
+  const constructionStatsQuery = useConstructionStats(
+    tenantId as string,
+    dateRange.from,
+    dateRange.to
+  );
+
+  // Use effect to set the appropriate data based on business type
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      if (!tenantId) return;
+    setIsLoading(true);
+    setError(null);
 
-      setIsLoading(true);
-      try {
-        let data;
-        switch (businessType) {
-          case "RESTAURANT":
-            const { getRestaurantStats } = await import(
-              "@/lib/actions/action.data"
-            );
-            data = await getRestaurantStats(
-              tenantId,
-              dateRange.from,
-              dateRange.to
-            );
-            break;
-          case "HOTEL":
-            const { getHotelStats } = await import("@/lib/actions/action.data");
-            data = await getHotelStats(tenantId, dateRange.from, dateRange.to);
-            break;
-          case "SALON":
-            const { getSalonStats } = await import("@/lib/actions/action.data");
-            data = await getSalonStats(tenantId, dateRange.from, dateRange.to);
-            break;
-          case "PHARMACIE":
-            const { getPharmacyStats } = await import(
-              "@/lib/actions/action.data"
-            );
-            data = await getPharmacyStats(
-              tenantId,
-              dateRange.from,
-              dateRange.to
-            );
-            break;
-          case "SUPERMARKET":
-            const { getSupermarketStats } = await import(
-              "@/lib/actions/action.data"
-            );
-            data = await getSupermarketStats(
-              tenantId,
-              dateRange.from,
-              dateRange.to
-            );
-            break;
-          case "CYBERCAFE":
-            const { getCybercafeStats } = await import(
-              "@/lib/actions/action.data"
-            );
-            data = await getCybercafeStats(
-              tenantId,
-              dateRange.from,
-              dateRange.to
-            );
-            break;
-          case "CONSTRUCTION":
-            const { getConstructionStats } = await import(
-              "@/lib/actions/construction-action"
-            );
-            data = await getConstructionStats(
-              tenantId,
-              dateRange.from,
-              dateRange.to
-            );
-            break;
-          default:
-            data = { error: "Business type not supported" };
-        }
+    let activeQuery: UseQueryResult<any, Error>;
 
-        if (data.error) {
-          setError(data.error);
-        } else {
-          setDashboardData(data);
-        }
-      } catch (err) {
-        setError("Failed to fetch dashboard data");
-        console.error(err);
-      } finally {
+    switch (businessType) {
+      case "RESTAURANT":
+        activeQuery = restaurantStatsQuery;
+        break;
+      case "HOTEL":
+        activeQuery = hotelStatsQuery;
+        break;
+      case "PHARMACIE":
+        activeQuery = pharmacyStatsQuery;
+        break;
+      case "CONSTRUCTION":
+        activeQuery = constructionStatsQuery;
+        break;
+      default:
+        setError("Business type not supported");
         setIsLoading(false);
-      }
-    };
+        return;
+    }
 
-    fetchDashboardData();
-  }, [businessType, tenantId, dateRange]);
-
-  console.log("dashboardData", dashboardData); // Add this line to log the dashboardData to the console
+    if (activeQuery.isLoading) {
+      setIsLoading(true);
+    } else if (activeQuery.error) {
+      setError(String(activeQuery.error));
+      setIsLoading(false);
+    } else if (activeQuery.data) {
+      setDashboardData(activeQuery.data);
+      setIsLoading(false);
+    }
+  }, [
+    businessType,
+    restaurantStatsQuery.data,
+    restaurantStatsQuery.isLoading,
+    restaurantStatsQuery.error,
+    hotelStatsQuery.data,
+    hotelStatsQuery.isLoading,
+    hotelStatsQuery.error,
+    pharmacyStatsQuery.data,
+    pharmacyStatsQuery.isLoading,
+    pharmacyStatsQuery.error,
+    constructionStatsQuery.data,
+    constructionStatsQuery.isLoading,
+    constructionStatsQuery.error,
+  ]);
 
   const getDataValue = (key: string, defaultValue: any = []) => {
     if (!dashboardData || typeof dashboardData !== "object")
       return defaultValue;
-    console.log("key", key);
-    console.log("Sucessful ", dashboardData[key]);
     return key in dashboardData ? dashboardData[key] : defaultValue;
   };
 
@@ -656,12 +650,6 @@ export default function UniversalDashboard() {
           {config.charts.map((chart, index) => {
             const chartData = getDataValue(chart.dataKey, []);
 
-            console.log(`Rendering chart: ${chart.title}`, {
-              type: chart.type,
-              dataKey: chart.dataKey,
-              data: chartData,
-            });
-
             if (
               chart.type === "pie" &&
               Array.isArray(chartData) &&
@@ -721,10 +709,6 @@ export default function UniversalDashboard() {
       {config.tables && config.tables.length > 0 && (
         <div className="grid gap-4 md:grid-cols-1">
           {config.tables.map((table, index) => {
-            // const tableData =
-            //   dashboardData && table.dataKey
-            //     ? dashboardData[table.dataKey] || []
-            //     : [];
             const tableData = getDataValue(table.dataKey, []);
 
             return (
