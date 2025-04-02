@@ -1,0 +1,63 @@
+// Construction-specific models
+model Project {
+    id          String   @id @default(cuid())
+    name        String
+    description String?
+    startDate   DateTime
+    dueDate     DateTime
+    status      String   @default("PLANNING") // PLANNING, IN_PROGRESS, COMPLETED, DELAYED
+    progress    Int      @default(0) // 0-100 percentage
+    budget      Float?
+    location    String?
+    tenantId    String
+    tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+    tasks       Task[]
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+    Asset       Asset[]
+
+    @@index([tenantId])
+    @@index([status])
+}
+
+// Enhance the existing Task model with construction-specific fields
+// or create a ProjectTask model if you want to keep them separate
+model Task {
+    id          String    @id @default(cuid())
+    name        String
+    description String?
+    startDate   DateTime?
+    dueDate     DateTime?
+    completedAt DateTime?
+    status      String    @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, DELAYED
+    progress    Int       @default(0) // 0-100 percentage
+    projectId   String?
+    project     Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+    tenantId    String
+    tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+    createdAt   DateTime  @default(now())
+    updatedAt   DateTime  @updatedAt
+
+    @@index([tenantId])
+    @@index([projectId])
+    @@index([status])
+}
+
+// Enhance the existing Asset model with construction-specific fields
+model Asset {
+    id        String   @id @default(cuid())
+    name      String
+    type      String // EQUIPMENT, VEHICLE, TOOL, etc.
+    status    String   @default("AVAILABLE") // AVAILABLE, IN_USE, MAINTENANCE, etc.
+    condition String   @default("GOOD") // GOOD, FAIR, POOR, MAINTENANCE
+    projectId String?
+    project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+    tenantId  String
+    tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@index([tenantId])
+    @@index([type])
+    @@index([status])
+}

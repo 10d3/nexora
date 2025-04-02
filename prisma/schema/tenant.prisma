@@ -82,6 +82,9 @@ model Tenant {
 
     @@index([businessType])
     RoomType RoomType[]
+    Asset Asset[]
+    Task Task[]
+    Project Project[]
 }
 
 model Member {

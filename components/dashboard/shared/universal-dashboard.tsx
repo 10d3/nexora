@@ -539,7 +539,34 @@ export default function UniversalDashboard() {
           descriptionKey: "timelineSummary",
         },
       ],
-      charts: [], // Empty array instead of undefined
+      charts: [
+        {
+          type: "pie",
+          title: "Project Progress",
+          description: "Current progress of active projects",
+          dataKey: "projectProgress",
+        },
+        {
+          type: "pie",
+          title: "Worker Allocation",
+          description: "Distribution of workers by role",
+          dataKey: "workerAllocation",
+        },
+        {
+          type: "area",
+          title: "Equipment Usage Trend",
+          description: "Equipment utilization over time",
+          dataKey: "equipmentUsageTrend",
+          keys: ["rate"],
+        },
+        {
+          type: "area",
+          title: "Task Completion",
+          description: "Daily completed tasks",
+          dataKey: "taskCompletion",
+          keys: ["completed"],
+        },
+      ],
       tables: [
         {
           title: "Project Status",

@@ -2562,3 +2562,337 @@ async function getDepartmentSalesData(tenantId: string, from: Date, to: Date) {
     };
   });
 }
+
+// Construction-specific actions
+export async function getConstructionStats(
+  tenantId: string,
+  dateFrom?: Date,
+  dateTo?: Date
+) {
+  try {
+    // Set default date range if not provided
+    const to = dateTo || new Date();
+    const from = dateFrom || new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000); // 30 days before
+
+    // Get today's date for daily stats
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    // Yesterday for trend calculations
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    // Use Promise.all to fetch data in parallel
+    const [
+      // Project data
+      activeProjects,
+      completedProjects,
+
+      // Worker data
+      totalWorkers,
+
+      // Equipment data
+      totalEquipment,
+      equipmentInUse,
+
+      // Task data
+      totalTasks,
+      completedTasks,
+
+      // Chart data
+      projectProgressData,
+      workerAllocationData,
+      equipmentUsageData,
+      taskCompletionData,
+
+      // Table data
+      projectsData,
+    ] = await Promise.all([
+      // Get active projects count
+      prisma.project.count({
+        where: {
+          tenantId,
+          status: {
+            in: ["IN_PROGRESS", "PLANNING"],
+          },
+        },
+      }),
+
+      // Get completed projects count
+      prisma.project.count({
+        where: {
+          tenantId,
+          status: "COMPLETED",
+          dueDate: {
+            gte: from,
+            lte: to,
+          },
+        },
+      }),
+
+      // Get total workers count - using Staff model
+      prisma.staff.count({
+        where: {
+          tenantId,
+        },
+      }),
+
+      // Get total equipment count
+      prisma.asset.count({
+        where: {
+          tenantId,
+          type: "EQUIPMENT",
+        },
+      }),
+
+      // Get equipment in use count
+      prisma.asset.count({
+        where: {
+          tenantId,
+          type: "EQUIPMENT",
+          status: "IN_USE",
+        },
+      }),
+
+      // Get total tasks count
+      prisma.task.count({
+        where: {
+          tenantId,
+          createdAt: {
+            gte: from,
+            lte: to,
+          },
+        },
+      }),
+
+      // Get completed tasks count
+      prisma.task.count({
+        where: {
+          tenantId,
+          status: "COMPLETED",
+          completedAt: {
+            gte: from,
+            lte: to,
+          },
+        },
+      }),
+
+      // Get project progress data
+      getProjectProgressData(tenantId),
+
+      // Get worker allocation data
+      getWorkerAllocationData(tenantId),
+
+      // Get equipment usage data
+      getEquipmentUsageData(tenantId),
+
+      // Get task completion data
+      getTaskCompletionData(tenantId, from, to),
+
+      // Get projects data for table
+      getProjectsTableData(tenantId),
+    ]);
+
+    // Calculate workers onsite (simulated as 70% of total)
+    const workersOnsite = Math.round(totalWorkers * 0.7);
+
+    // Calculate percentages and trends
+    const equipmentUsageRate =
+      totalEquipment > 0
+        ? Math.round((equipmentInUse / totalEquipment) * 100)
+        : 0;
+
+    const workerOnsiteRate =
+      totalWorkers > 0 ? Math.round((workersOnsite / totalWorkers) * 100) : 0;
+
+    const taskCompletionRate =
+      totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+    // Format summary descriptions
+    const projectsSummary = `${completedProjects} completed this period`;
+    const workersSummary = `${workerOnsiteRate}% of total workforce`;
+    const equipmentSummary = `${equipmentUsageRate}% utilization rate`;
+    const timelineSummary = `${taskCompletionRate}% tasks completed`;
+
+    return {
+      // Metrics
+      activeProjects,
+      projectsSummary,
+      workersOnsite,
+      workersSummary,
+      equipmentUsage: `${equipmentUsageRate}%`,
+      equipmentSummary,
+      projectTimeline: `${taskCompletionRate}%`,
+      timelineSummary,
+
+      // Table data
+      projects: projectsData,
+
+      // Chart data
+      projectProgress: projectProgressData,
+      workerAllocation: workerAllocationData,
+      equipmentUsageTrend: equipmentUsageData,
+      taskCompletion: taskCompletionData,
+    };
+  } catch (error) {
+    console.error("Error fetching construction stats:", error);
+    return { error: "Failed to fetch construction statistics" };
+  }
+}
+
+// Helper function to get project progress data
+async function getProjectProgressData(tenantId: string) {
+  const projects = await prisma.project.findMany({
+    where: {
+      tenantId,
+      status: {
+        in: ["IN_PROGRESS", "PLANNING", "COMPLETED"],
+      },
+    },
+    select: {
+      name: true,
+      progress: true,
+    },
+    take: 5, // Limit to 5 projects for the chart
+    orderBy: {
+      dueDate: "asc",
+    },
+  });
+
+  return projects.map((project) => ({
+    name: project.name,
+    value: project.progress || 0,
+  }));
+}
+
+// Helper function to get worker allocation data
+async function getWorkerAllocationData(tenantId: string) {
+  // Since Staff doesn't have a role field we can group by, let's use specialization instead
+  const workerSpecializations = await prisma.staff.groupBy({
+    by: ["specialization"],
+    where: {
+      tenantId,
+      specialization: {
+        not: null,
+      },
+    },
+    _count: {
+      id: true,
+    },
+  });
+
+  return workerSpecializations.map((spec) => ({
+    name: spec.specialization || "General",
+    value: spec._count.id,
+  }));
+}
+
+// Helper function to get equipment usage data
+async function getEquipmentUsageData(tenantId: string) {
+  const days = 30;
+  const today = new Date();
+  const datePoints = Array.from({ length: days }, (_, i) => {
+    const date = new Date(today);
+    date.setDate(date.getDate() - (days - 1) + i);
+    date.setHours(0, 0, 0, 0);
+    return date;
+  });
+
+  // For a real implementation, you would need to have historical equipment usage data
+  // This is a placeholder that generates random data
+  return datePoints.map((date) => {
+    const usageRate = Math.floor(Math.random() * 40) + 60; // Random between 60-100%
+
+    return {
+      date: date.toISOString().split("T")[0],
+      rate: usageRate,
+    };
+  });
+}
+
+// Helper function to get task completion data
+async function getTaskCompletionData(tenantId: string, from: Date, to: Date) {
+  const days = 30;
+  const datePoints = Array.from({ length: days }, (_, i) => {
+    const date = new Date(to);
+    date.setDate(date.getDate() - (days - 1) + i);
+    date.setHours(0, 0, 0, 0);
+    return date;
+  });
+
+  return Promise.all(
+    datePoints.map(async (date) => {
+      const nextDay = new Date(date);
+      nextDay.setDate(nextDay.getDate() + 1);
+
+      const completedTasks = await prisma.task.count({
+        where: {
+          tenantId,
+          status: "COMPLETED",
+          completedAt: {
+            gte: date,
+            lt: nextDay,
+          },
+        },
+      });
+
+      return {
+        date: date.toISOString().split("T")[0],
+        completed: completedTasks,
+      };
+    })
+  );
+}
+
+// Helper function to get projects data for table
+async function getProjectsTableData(tenantId: string) {
+  const projects = await prisma.project.findMany({
+    where: {
+      tenantId,
+    },
+    select: {
+      name: true,
+      progress: true,
+      dueDate: true,
+      status: true,
+    },
+    orderBy: {
+      dueDate: "asc",
+    },
+  });
+
+  return projects.map((project) => {
+    // Format the deadline date
+    const deadline = project.dueDate
+      ? project.dueDate.toLocaleDateString()
+      : "No deadline";
+
+    // Determine status label and style
+    let statusObj;
+    switch (project.status) {
+      case "COMPLETED":
+        statusObj = { status: "on-track", label: "Completed" };
+        break;
+      case "IN_PROGRESS":
+        statusObj =
+          (project.progress || 0) > 50
+            ? { status: "on-track", label: "On Track" }
+            : { status: "at-risk", label: "At Risk" };
+        break;
+      case "DELAYED":
+        statusObj = { status: "delayed", label: "Delayed" };
+        break;
+      default:
+        statusObj = { status: "outline", label: project.status || "Planning" };
+    }
+
+    return {
+      Project: project.name,
+      Progress: `${project.progress || 0}%`,
+      Deadline: deadline,
+      Status: statusObj,
+    };
+  });
+}
