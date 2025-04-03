@@ -35,6 +35,7 @@ model Reservation {
 
     @@index([tenantId])
     @@index([tableId])
+    CustomerProfile CustomerProfile[]
 }
 
 // Restaurant specific models

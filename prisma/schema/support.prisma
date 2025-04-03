@@ -1,0 +1,75 @@
+// Support ticket model
+// model Ticket {
+//     id           String         @id @default(cuid())
+//     ticketNumber String         @unique
+//     subject      String
+//     description  String
+//     status       TicketStatus   @default(OPEN)
+//     priority     TicketPriority @default(MEDIUM)
+
+//     // Customer relationship
+//     customerProfileId String
+//     customerProfile   CustomerProfile @relation(fields: [customerProfileId], references: [id])
+
+//     // Assigned staff
+//     assignedToId String?
+//     assignedTo   UniversalStaff? @relation(fields: [assignedToId], references: [id])
+
+//     // Ticket responses
+//     responses TicketResponse[]
+
+//     // Business tracking
+//     tenantId String
+//     tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+//     // Timestamps
+//     createdAt  DateTime  @default(now())
+//     updatedAt  DateTime  @updatedAt
+//     resolvedAt DateTime?
+
+//     @@index([customerProfileId])
+//     @@index([assignedToId])
+//     @@index([tenantId])
+//     @@index([status])
+//     @@index([priority])
+//     @@index([createdAt])
+// }
+
+// model TicketResponse {
+//     id      String @id @default(cuid())
+//     message String
+
+//     // Ticket relationship
+//     ticketId String
+//     ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+//     // Responder (staff or customer)
+//     responderId   String
+//     responderType String // "STAFF" or "CUSTOMER"
+
+//     // Business tracking
+//     tenantId String
+//     tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+//     // Timestamps
+//     createdAt DateTime @default(now())
+
+//     @@index([ticketId])
+//     @@index([tenantId])
+//     @@index([createdAt])
+// }
+
+// enum TicketStatus {
+//     OPEN
+//     IN_PROGRESS
+//     WAITING_ON_CUSTOMER
+//     RESOLVED
+//     CLOSED
+// }
+
+// enum TicketPriority {
+//     LOW
+//     MEDIUM
+//     HIGH
+//     URGENT
+// }

@@ -1,0 +1,37 @@
+// // Review model
+// model Review {
+//     id       String  @id @default(cuid())
+//     rating   Int // 1-5 star rating
+//     title    String?
+//     comment  String?
+//     isPublic Boolean @default(true)
+
+//     // Customer relationship
+//     customerProfileId String
+//     customerProfile   CustomerProfile @relation(fields: [customerProfileId], references: [id])
+
+//     // What is being reviewed
+//     entityType String // "PRODUCT", "SERVICE", "STAFF", "BUSINESS"
+//     entityId   String
+
+//     // Business tracking
+//     tenantId String
+//     tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+//     // Timestamps
+//     createdAt DateTime @default(now())
+//     updatedAt DateTime @updatedAt
+
+//     // Response to review
+//     responseText  String?
+//     respondedAt   DateTime?
+//     respondedById String?
+//     respondedBy   User?     @relation(fields: [respondedById], references: [id])
+
+//     @@index([customerProfileId])
+//     @@index([entityType, entityId])
+//     @@index([tenantId])
+//     @@index([rating])
+//     @@index([createdAt])
+//     @@index([respondedById])
+// }

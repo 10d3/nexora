@@ -8,6 +8,21 @@ model CustomerProfile {
     phone     String?
     address   String?
 
+    // Additional customer information
+    dateOfBirth DateTime?
+    gender      String?
+    notes       String?
+
+    // Customer metrics
+    totalSpent    Float?    @default(0)
+    lastVisit     DateTime?
+    loyaltyPoints Int?      @default(0)
+    customerSince DateTime  @default(now())
+
+    // Preferences and tags
+    preferences Json? // Store customer preferences as JSON
+    tags        String? // Comma-separated tags for customer segmentation
+
     // Optional link to registered user account
     userId String? @unique
     user   User?   @relation(fields: [userId], references: [id])
@@ -23,17 +38,26 @@ model CustomerProfile {
     // Business-specific relationships
     creditAccountId String?        @unique
     creditAccount   CreditAccount? @relation("CreditAccountToCustomerProfile", fields: [creditAccountId], references: [id])
-    bookings        Booking[] // Hotel bookings
-    appointments    Appointment[] // Salon appointments
-    orders          Order[] // All purchases
+
+    // Consolidated relationships from all business types
+    bookings      Booking[] // Hotel bookings
+    appointments  Appointment[] // Salon appointments
+    orders        Order[] // All purchases
+    prescriptions Prescription[] // Pharmacy prescriptions
+    reservations  Reservation[] // Restaurant reservations
+    guestInfo     Guest?         @relation(fields: [guestId], references: [id]) // Hotel guest information
 
     // Timestamps
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
+    guestId   String?
 
     @@index([tenantId])
     @@index([email])
     @@index([phone])
     @@index([lastName, firstName])
     @@index([userId])
+    @@index([lastVisit])
+    @@index([totalSpent])
+    @@index([customerSince])
 }

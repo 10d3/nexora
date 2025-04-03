@@ -1634,18 +1634,18 @@ async function getCustomerRetentionData(
       },
     },
     select: {
-      customerId: true,
+      customerProfileId: true,
     },
   });
 
   // Count unique customers
-  const uniqueCustomers = new Set(appointments.map((a) => a.customerId)).size;
+  const uniqueCustomers = new Set(appointments.map((a) => a.customerProfileId)).size;
 
   // Count customers with multiple appointments
   const customerCounts: Record<string, number> = {};
   appointments.forEach((appointment) => {
-    customerCounts[appointment.customerId] =
-      (customerCounts[appointment.customerId] || 0) + 1;
+    customerCounts[appointment?.customerProfileId as string] =
+      (customerCounts[appointment.customerProfileId as string] || 0) + 1;
   });
 
   const repeatCustomers = Object.values(customerCounts).filter(
