@@ -31,8 +31,8 @@ model Task {
     completedAt DateTime?
     status      String    @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, DELAYED
     progress    Int       @default(0) // 0-100 percentage
-    projectId   String?
-    project     Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+    projectId   String
+    project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
     tenantId    String
     tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
     createdAt   DateTime  @default(now())

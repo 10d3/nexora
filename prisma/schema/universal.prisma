@@ -52,6 +52,9 @@ model Order {
     @@index([tenantId, createdAt]) // Index for sorting by createdAt
     @@index([status])
     @@index([orderNumber])
+    @@index([customerProfileId])
+    @@index([completedAt])
+    @@index([completedBy])
 }
 
 model OrderItem {

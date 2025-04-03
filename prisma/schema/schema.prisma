@@ -304,6 +304,11 @@ enum FulfillmentStatus {
   FULFILLED
   RETURNED
   PARTIALLY_RETURNED
+  READY_FOR_PICKUP
+  READY_FOR_DELIVERY
+  DELIVERED
+  RETURNED_TO_STOCK
+  LOST
 }
 
 enum RefundStatus {
@@ -417,4 +422,11 @@ enum Role {
 
   // user
   USER
+}
+
+enum DeliveryStatus {
+  PENDING
+  IN_TRANSIT
+  DELIVERED
+  FAILED
 }

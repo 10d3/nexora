@@ -52,19 +52,19 @@ model PromotionProduct {
 
 // Add this to your supermarket.prisma file
 model Delivery {
-    id             String   @id @default(cuid())
-    orderId        String   @unique
-    order          Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+    id             String         @id @default(cuid())
+    orderId        String         @unique
+    order          Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
     scheduledDate  DateTime
-    deliveryStatus String   @default("PENDING") // PENDING, IN_TRANSIT, DELIVERED, FAILED
+    deliveryStatus DeliveryStatus @default(PENDING)
     address        String
     contactPhone   String?
     driverName     String?
     notes          String?
     tenantId       String
-    tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-    createdAt      DateTime @default(now())
-    updatedAt      DateTime @updatedAt
+    tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+    createdAt      DateTime       @default(now())
+    updatedAt      DateTime       @updatedAt
 
     @@index([tenantId])
     @@index([orderId])

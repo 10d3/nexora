@@ -26,39 +26,40 @@ model Medication {
 }
 
 model Prescription {
-    id               String             @id @default(cuid())
-    medicationId     String
-    medication       Medication         @relation(fields: [medicationId], references: [id])
-    dosage           String
-    duration         Int
-    instructions     String?
-    prescribedById   String
-    prescribedBy     User               @relation("prescribedBy", fields: [prescribedById], references: [id])
-    patientId        String
-    patient          User               @relation("patient", fields: [patientId], references: [id])
-    tenantId         String
-    tenant           Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-    createdAt        DateTime           @default(now())
-    updatedAt        DateTime           @updatedAt
-    PrescriptionItem PrescriptionItem[]
+    id                String             @id @default(cuid())
+    medicationId      String
+    medication        Medication         @relation(fields: [medicationId], references: [id])
+    dosage            String
+    duration          Int
+    instructions      String?
+    prescribedById    String
+    prescribedBy      User               @relation("prescribedBy", fields: [prescribedById], references: [id])
+    patientId         String
+    patient           User               @relation("patient", fields: [patientId], references: [id])
+    tenantId          String
+    tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+    createdAt         DateTime           @default(now())
+    updatedAt         DateTime           @updatedAt
+    // PrescriptionItem PrescriptionItem[]
+    prescriptionItems PrescriptionItem[]
 
     CustomerProfile CustomerProfile[]
 }
 
 model PrescriptionItem {
-    id             String       @id @default(cuid())
-    prescriptionId String
-    prescription   Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
-    medicationId   String
-    medication     Medication   @relation(fields: [medicationId], references: [id])
-    dosage         String?
-    frequency      String?
-    duration       String?
-    quantity       Int
-    tenantId       String
-    tenant         Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-    createdAt      DateTime     @default(now())
-    updatedAt      DateTime     @updatedAt
+    id                   String       @id @default(cuid())
+    prescriptionId       String
+    prescription         Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+    medicationId         String
+    medication           Medication   @relation(fields: [medicationId], references: [id])
+    dosage               String?
+    durationDays         Int? // Changed from String
+    frequencyTimesPerDay Int?
+    quantity             Int
+    tenantId             String
+    tenant               Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+    createdAt            DateTime     @default(now())
+    updatedAt            DateTime     @updatedAt
 
     @@index([prescriptionId])
     @@index([medicationId])
