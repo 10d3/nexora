@@ -197,6 +197,7 @@ export default function StaffGrid() {
 
       {editingStaff && (
         <StaffForm
+          tenantId={tenantId as string}
           open={!!editingStaff}
           onOpenChange={() => setEditingStaff(null)}
           onSuccess={handleEditSuccess}

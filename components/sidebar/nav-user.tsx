@@ -147,7 +147,7 @@ export function NavUser({
               <div className="flex flex-row items-center justify-between px-2">
                 <div className="mb-1 text-xs font-medium">Theme</div>
                 <div className="flex items-center gap-2">
-                  <ModeToggle isNav />
+                  <ModeToggle />
                 </div>
               </div>
               <ThemeColorToggle />
