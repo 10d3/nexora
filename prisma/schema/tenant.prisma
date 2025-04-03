@@ -46,9 +46,9 @@ model Tenant {
     reservations Reservation[]
 
     // Hotel relationships
-    rooms    Room[]
-    guests   Guest[]
-    bookings Booking[]
+    rooms            Room[]
+    guests           Guest[]
+    bookings         Booking[]
     housekeepingLogs HousekeepingLog[]
 
     // Service relationships
@@ -80,11 +80,15 @@ model Tenant {
     // Site relationship
     site Site?
 
+    // Staff and Customer relationships
+    universalStaff   UniversalStaff[]
+    customerProfiles CustomerProfile[]
+    RoomType         RoomType[]
+    Asset            Asset[]
+    Task             Task[]
+    Project          Project[]
+
     @@index([businessType])
-    RoomType RoomType[]
-    Asset Asset[]
-    Task Task[]
-    Project Project[]
 }
 
 model Member {

@@ -42,6 +42,9 @@ model Order {
     deletedBy         String?
     deletedAt         DateTime?
 
+    customerProfileId String?
+    customerProfile   CustomerProfile? @relation(fields: [customerProfileId], references: [id])
+
     @@index([tenantId])
     @@index([userId])
     @@index([tableId])

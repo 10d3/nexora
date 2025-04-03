@@ -77,10 +77,14 @@ model User {
   subscriptions UserSubscription[]
 
   // pharmacy relationships
-  prescriptionsPrescribed Prescription[] @relation("prescribedBy")
-  prescriptionsReceived   Prescription[] @relation("patient")
+  prescriptionsPrescribed Prescription[]    @relation("prescribedBy")
+  prescriptionsReceived   Prescription[]    @relation("patient")
   // AuditLog                AuditLog[]
   // AuditLog                AuditLog[]
+  customerProfile         CustomerProfile?
+  createdProfiles         CustomerProfile[] @relation("ProfileCreatedBy")
+  UniversalStaff          UniversalStaff[]
+  // CustomerProfile CustomerProfile[]
 
   @@index([tenantId])
   @@index([email])

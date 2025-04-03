@@ -1,0 +1,39 @@
+// Customer profile model for all business types
+model CustomerProfile {
+    id        String  @id @default(cuid())
+    // Basic information
+    firstName String
+    lastName  String
+    email     String?
+    phone     String?
+    address   String?
+
+    // Optional link to registered user account
+    userId String? @unique
+    user   User?   @relation(fields: [userId], references: [id])
+
+    // Business tracking
+    tenantId String
+    tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+    // Audit fields
+    createdById String?
+    createdBy   User?   @relation("ProfileCreatedBy", fields: [createdById], references: [id])
+
+    // Business-specific relationships
+    creditAccountId String?        @unique
+    creditAccount   CreditAccount? @relation("CreditAccountToCustomerProfile", fields: [creditAccountId], references: [id])
+    bookings        Booking[] // Hotel bookings
+    appointments    Appointment[] // Salon appointments
+    orders          Order[] // All purchases
+
+    // Timestamps
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@index([tenantId])
+    @@index([email])
+    @@index([phone])
+    @@index([lastName, firstName])
+    @@index([userId])
+}

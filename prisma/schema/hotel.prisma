@@ -10,7 +10,7 @@ model Room {
     orders       Order[]
     bookings     Booking[]
     housekeeping HousekeepingLog[]
-    roomType    RoomType? @relation(fields: [roomTypeId], references: [id])
+    roomType     RoomType?         @relation(fields: [roomTypeId], references: [id])
     roomTypeId   String?
     createdAt    DateTime          @default(now())
     updatedAt    DateTime          @updatedAt
@@ -60,6 +60,9 @@ model Booking {
     createdAt   DateTime      @default(now())
     updatedAt   DateTime      @updatedAt
 
+    customerProfileId String?
+    customerProfile   CustomerProfile? @relation(fields: [customerProfileId], references: [id])
+
     @@index([guestId])
     @@index([roomId])
     @@index([tenantId])
@@ -88,14 +91,14 @@ enum HousekeepingStatus {
 }
 
 model RoomType {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  rooms       Room[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  @@index([tenantId])
+    id          String   @id @default(cuid())
+    name        String
+    description String?
+    tenantId    String
+    tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+    rooms       Room[]
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+
+    @@index([tenantId])
 }
