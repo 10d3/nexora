@@ -42,30 +42,30 @@ export async function createTenant(formData: FormData) {
     }
 
     // Check subscription limits
-    const activeSubscription = user.subscriptions[0];
+    // const activeSubscription = user.subscriptions[0];
 
-    if (activeSubscription) {
-      const { plan } = activeSubscription;
-      // Fix: Check against the length of user.tenants array
-      const currentTenantCount = user.tenants.length;
+    // if (activeSubscription) {
+    //   const { plan } = activeSubscription;
+    //   // Fix: Check against the length of user.tenants array
+    //   const currentTenantCount = user.tenants.length;
 
-      if (currentTenantCount >= plan.maxTenants) {
-        return {
-          success: false,
-          message: `Your ${plan.name} plan allows a maximum of ${plan.maxTenants} businesses. Please upgrade your subscription to add more.`,
-        };
-      }
-    } else {
-      // If no active subscription, check if they're allowed to create a tenant
-      // You might want to allow one free tenant or restrict based on your business logic
-      if (user.tenants.length >= 1) {
-        return {
-          success: false,
-          message:
-            "You need an active subscription to create additional businesses.",
-        };
-      }
-    }
+    //   if (currentTenantCount >= plan.maxTenants) {
+    //     return {
+    //       success: false,
+    //       message: `Your ${plan.name} plan allows a maximum of ${plan.maxTenants} businesses. Please upgrade your subscription to add more.`,
+    //     };
+    //   }
+    // } else {
+    //   // If no active subscription, check if they're allowed to create a tenant
+    //   // You might want to allow one free tenant or restrict based on your business logic
+    //   if (user.tenants.length >= 1) {
+    //     return {
+    //       success: false,
+    //       message:
+    //         "You need an active subscription to create additional businesses.",
+    //     };
+    //   }
+    // }
 
     // Create slug from name
     const slug = createSlug(name);

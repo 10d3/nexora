@@ -13,6 +13,7 @@ import { ReactNode } from "react";
 import { getAllTenants } from "@/lib/utils/tenant-utils";
 import { env } from "@/lib/env";
 import ProviderPos from "./providers-pos";
+import { Toaster } from "sonner";
 
 export async function generateMetadata({
   params,
@@ -119,6 +120,7 @@ export default async function PosLayout({
             </header>
             <main>
               <ProviderPos tenant={activeTenant}>{children}</ProviderPos>
+              <Toaster />
             </main>
           </div>
         </SidebarInset>
