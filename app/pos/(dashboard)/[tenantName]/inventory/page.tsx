@@ -1,6 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useMemo } from "react";
+// import { useParams } from "next/navigation";
 import {
   ArrowUpDown,
   BarChart3,
@@ -82,6 +84,14 @@ import {
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useDashboard } from "@/context/dashboard-provider";
+import { useInventoryMutation } from "@/hooks/use-inventory-mutations";
+import { useQuery } from "@tanstack/react-query";
+import {
+  getInventory,
+  getCategories,
+  getSuppliers,
+} from "@/lib/actions/inventory-actions";
 
 // Types
 type InventoryItem = {
@@ -98,6 +108,8 @@ type InventoryItem = {
   lastUpdated: Date;
   status: "in-stock" | "low-stock" | "out-of-stock" | "discontinued";
   image?: string;
+  tenantId?: string;
+  businessType?: string;
 };
 
 type Category = {
@@ -114,17 +126,15 @@ type Supplier = {
 };
 
 export default function InventoryPage() {
-  const [inventory, setInventory] = useState<InventoryItem[]>([]);
-  const [filteredInventory, setFilteredInventory] = useState<InventoryItem[]>(
-    []
-  );
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  //   const { tenantName } = useParams();
+  const { businessType, tenantId } = useDashboard();
+  const { createInventoryItem, updateInventoryItem, deleteInventoryItem } =
+    useInventoryMutation(tenantId as string);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [selectedSupplier, setSelectedSupplier] = useState<string>("all");
-  const [isLoading, setIsLoading] = useState(true);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
@@ -133,98 +143,94 @@ export default function InventoryPage() {
     direction: "asc" | "desc";
   } | null>(null);
 
-  // Load data
-  useEffect(() => {
-    const loadData = async () => {
-      setIsLoading(true);
-      try {
-        // Fetch inventory data
-        // const inventoryResponse = await fetch('/api/inventory');
-        // const inventoryData = await inventoryResponse.json();
-        // setInventory(inventoryData);
-        // setFilteredInventory(inventoryData);
+  // Fetch inventory data using React Query
+  const {
+    data: inventoryData,
+    isLoading,
+    // isError,
+  } = useQuery({
+    queryKey: [
+      "inventory",
+      tenantId,
+      selectedCategory,
+      selectedStatus,
+      selectedSupplier,
+      searchQuery,
+    ],
+    queryFn: () =>
+      getInventory(
+        businessType,
+        tenantId as string,
+        selectedCategory !== "all" ? selectedCategory : undefined,
+        selectedStatus !== "all" ? selectedStatus : undefined,
+        selectedSupplier !== "all" ? selectedSupplier : undefined,
+        searchQuery || undefined
+      ),
+    enabled: !!tenantId,
+  });
 
-        // Fetch categories
-        // const categoriesResponse = await fetch('/api/categories');
-        // const categoriesData = await categoriesResponse.json();
-        // setCategories(categoriesData);
+  // Fetch categories using React Query
+  const { data: categoriesData, isLoading: isCategoriesLoading } = useQuery({
+    queryKey: ["categories", tenantId],
+    queryFn: () => getCategories(businessType, tenantId as string),
+    enabled: !!tenantId,
+  });
 
-        // Fetch suppliers
-        // const suppliersResponse = await fetch('/api/suppliers');
-        // const suppliersData = await suppliersResponse.json();
-        // setSuppliers(suppliersData);
+  // Fetch suppliers using React Query
+  const { data: suppliersData, isLoading: isSuppliersLoading } = useQuery({
+    queryKey: ["suppliers", tenantId],
+    queryFn: () => getSuppliers(businessType, tenantId as string),
+    enabled: !!tenantId,
+  });
 
-        // Temporary empty arrays until API is implemented
-        setInventory([]);
-        setFilteredInventory([]);
-        setCategories([]);
-        setSuppliers([]);
-      } catch (error) {
-        console.error("Failed to load data:", error);
-        toast.error("Failed to load inventory data");
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  // Extract data from query results
+  const inventory: InventoryItem[] = inventoryData?.success
+    ? inventoryData.data || []
+    : [];
+  const categories: Category[] = categoriesData?.success
+    ? categoriesData.data || []
+    : [];
+  const suppliers: Supplier[] = suppliersData?.success
+    ? suppliersData.data || []
+    : [];
 
-    loadData();
-  }, []);
+  // Determine if any data is loading
+  const isDataLoading = isLoading || isCategoriesLoading || isSuppliersLoading;
 
-  // Filter inventory based on search, category, and status
-  useEffect(() => {
-    let filtered = [...inventory];
-
-    // Apply search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (item) =>
-          item.name.toLowerCase().includes(query) ||
-          item.sku.toLowerCase().includes(query) ||
-          item.supplier.toLowerCase().includes(query)
-      );
-    }
-
-    // Apply category filter
-    if (selectedCategory !== "all") {
-      filtered = filtered.filter((item) => item.category === selectedCategory);
-    }
-
-    // Apply status filter
-    if (selectedStatus !== "all") {
-      filtered = filtered.filter((item) => item.status === selectedStatus);
-    }
-
-    // Apply supplier filter
-    if (selectedSupplier !== "all") {
-      filtered = filtered.filter((item) => item.supplier === selectedSupplier);
-    }
+  // Apply client-side sorting and filtering
+  const filteredInventory = useMemo(() => {
+    const filtered = [...inventory];
 
     // Apply sorting
     if (sortConfig) {
       filtered.sort((a, b) => {
-        const key = sortConfig.key as keyof InventoryItem;
-        const direction = sortConfig.direction as "asc" | "desc";
+        const key = sortConfig.key;
+        const direction = sortConfig.direction;
 
-        if (a[key] !== undefined && b[key] !== undefined && a[key] < b[key]) {
+        // Handle different types of values for proper comparison
+        const aValue = a[key];
+        const bValue = b[key];
+
+        // For string comparison
+        if (typeof aValue === "string" && typeof bValue === "string") {
+          return direction === "asc"
+            ? aValue.localeCompare(bValue)
+            : bValue.localeCompare(aValue);
+        }
+
+        // For number and other types
+        if (aValue !== undefined && bValue !== undefined && aValue < bValue) {
           return direction === "asc" ? -1 : 1;
         }
-        if (a[key] !== undefined && b[key] !== undefined && a[key] > b[key]) {
+        if (aValue !== undefined && bValue !== undefined && aValue > bValue) {
           return direction === "asc" ? 1 : -1;
         }
         return 0;
       });
     }
 
-    setFilteredInventory(filtered);
-  }, [
-    inventory,
-    searchQuery,
-    selectedCategory,
-    selectedStatus,
-    selectedSupplier,
-    sortConfig,
-  ]);
+    return filtered;
+  }, [inventory, sortConfig]);
 
   // Handle sorting
   const handleSort = (key: keyof InventoryItem) => {
@@ -242,7 +248,7 @@ export default function InventoryPage() {
   // Handle adding a new item
   const handleAddItem = async (formData: FormData) => {
     try {
-      const newItem: Omit<InventoryItem, "id"> = {
+      const newItem = {
         name: formData.get("name") as string,
         sku: formData.get("sku") as string,
         category: formData.get("category") as string,
@@ -252,7 +258,8 @@ export default function InventoryPage() {
         cost: Number.parseFloat(formData.get("cost") as string),
         supplier: formData.get("supplier") as string,
         location: formData.get("location") as string,
-        lastUpdated: new Date(),
+        tenantId: tenantId as string,
+        businessType: businessType,
         status:
           Number.parseInt(formData.get("quantity") as string) === 0
             ? "out-of-stock"
@@ -262,26 +269,18 @@ export default function InventoryPage() {
               : "in-stock",
       };
 
-      // API call to create item
-      // const response = await fetch('/api/inventory', {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //   },
-      //   body: JSON.stringify(newItem),
-      // });
-      // const createdItem = await response.json();
-
-      // Temporary mock response
-      const createdItem = {
-        ...newItem,
-        id: `item-${inventory.length + 1}`,
-      };
-
-      setInventory([...inventory, createdItem as InventoryItem]);
-      setIsAddDialogOpen(false);
-      toast.success("Item added successfully", {
-        description: `${createdItem.name} has been added to inventory.`,
+      // Use the mutation hook to create the item
+      createInventoryItem(newItem, {
+        onSuccess: () => {
+          setIsAddDialogOpen(false);
+          toast.success("Item added successfully", {
+            description: `${newItem.name} has been added to inventory.`,
+          });
+        },
+        onError: (error: any) => {
+          console.error("Failed to add item:", error);
+          toast.error("Failed to add item");
+        },
       });
     } catch (error) {
       console.error("Failed to add item:", error);
@@ -294,8 +293,8 @@ export default function InventoryPage() {
     if (!selectedItem) return;
 
     try {
-      const updatedItem: InventoryItem = {
-        ...selectedItem,
+      const updatedItem = {
+        id: selectedItem.id,
         name: formData.get("name") as string,
         sku: formData.get("sku") as string,
         category: formData.get("category") as string,
@@ -305,7 +304,8 @@ export default function InventoryPage() {
         cost: Number.parseFloat(formData.get("cost") as string),
         supplier: formData.get("supplier") as string,
         location: formData.get("location") as string,
-        lastUpdated: new Date(),
+        tenantId: tenantId as string,
+        businessType: businessType,
         status:
           Number.parseInt(formData.get("quantity") as string) === 0
             ? "out-of-stock"
@@ -315,25 +315,23 @@ export default function InventoryPage() {
               : "in-stock",
       };
 
-      // API call to update item
-      // await fetch(`/api/inventory/${selectedItem.id}`, {
-      //   method: 'PUT',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //   },
-      //   body: JSON.stringify(updatedItem),
-      // });
-
-      setInventory(
-        inventory.map((item) =>
-          item.id === selectedItem.id ? updatedItem : item
-        )
+      // Use the mutation hook to update the item
+      updateInventoryItem(
+        { itemId: updatedItem.id, data: updatedItem },
+        {
+          onSuccess: () => {
+            setIsEditDialogOpen(false);
+            setSelectedItem(null);
+            toast.success("Item updated successfully", {
+              description: `${updatedItem.name} has been updated.`,
+            });
+          },
+          onError: (error: any) => {
+            console.error("Failed to update item:", error);
+            toast.error("Failed to update item");
+          },
+        }
       );
-      setIsEditDialogOpen(false);
-      setSelectedItem(null);
-      toast.success("Item updated successfully", {
-        description: `${updatedItem.name} has been updated.`,
-      });
     } catch (error) {
       console.error("Failed to update item:", error);
       toast.error("Failed to update item");
@@ -346,14 +344,17 @@ export default function InventoryPage() {
     if (!itemToDelete) return;
 
     try {
-      // API call to delete item
-      // await fetch(`/api/inventory/${id}`, {
-      //   method: 'DELETE',
-      // });
-
-      setInventory(inventory.filter((item) => item.id !== id));
-      toast.success("Item deleted successfully", {
-        description: `${itemToDelete.name} has been removed from inventory.`,
+      // Use the mutation hook to delete the item
+      deleteInventoryItem(id, {
+        onSuccess: () => {
+          toast.success("Item deleted successfully", {
+            description: `${itemToDelete.name} has been removed from inventory.`,
+          });
+        },
+        onError: (error: any) => {
+          console.error("Failed to delete item:", error);
+          toast.error("Failed to delete item");
+        },
       });
     } catch (error) {
       console.error("Failed to delete item:", error);
@@ -754,7 +755,13 @@ export default function InventoryPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setFilteredInventory([...inventory])}
+                    onClick={() => {
+                      setSearchQuery("");
+                      setSelectedCategory("all");
+                      setSelectedStatus("all");
+                      setSelectedSupplier("all");
+                      setSortConfig(null);
+                    }}
                   >
                     <RefreshCcw className="h-3.5 w-3.5 mr-1.5" />
                     Reset Filters
@@ -825,7 +832,7 @@ export default function InventoryPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {isLoading ? (
+                    {isDataLoading ? (
                       Array.from({ length: 10 }).map((_, index) => (
                         <TableRow key={index}>
                           <TableCell className="font-medium">
@@ -1105,7 +1112,9 @@ export default function InventoryPage() {
                         key={supplier.id}
                         className="flex items-center justify-between"
                       >
-                        <span className="font-medium">{supplier.name}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{supplier.name}</span>
+                        </div>
                         <div className="flex items-center gap-4">
                           <span className="text-muted-foreground">
                             {supplier.count} items
@@ -1127,50 +1136,16 @@ export default function InventoryPage() {
               </CardContent>
             </Card>
           </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Category Distribution</CardTitle>
-              <CardDescription>
-                Breakdown of inventory by category
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[200px] flex items-center">
-                <div className="w-full flex items-end justify-around h-[180px] gap-2">
-                  {categories.map((category) => (
-                    <div
-                      key={category.id}
-                      className="flex flex-col items-center gap-2"
-                    >
-                      <div
-                        className={`w-16 ${category.color} rounded-t-md`}
-                        style={{
-                          height: `${(category.count / Math.max(...(categories.map((c) => c.count) || 1))) * 150}px`,
-                        }}
-                      ></div>
-                      <div className="text-xs font-medium truncate w-20 text-center">
-                        {category.name}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {category.count}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </TabsContent>
       </Tabs>
 
-      {/* Edit Dialog */}
+      {/* Edit Item Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-[550px]">
           <DialogHeader>
             <DialogTitle>Edit Inventory Item</DialogTitle>
             <DialogDescription>
-              Update the details for this inventory item.
+              Update the details for {selectedItem?.name}
             </DialogDescription>
           </DialogHeader>
           {selectedItem && (
@@ -1284,7 +1259,10 @@ export default function InventoryPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setIsEditDialogOpen(false)}
+                  onClick={() => {
+                    setIsEditDialogOpen(false);
+                    setSelectedItem(null);
+                  }}
                 >
                   Cancel
                 </Button>
