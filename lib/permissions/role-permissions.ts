@@ -26,6 +26,10 @@ export enum Permission {
   VIEW_ORDERS = "view_orders",
   PROCESS_PAYMENTS = "process_payments",
   ISSUE_REFUNDS = "issue_refunds",
+  // VIEW_ORDERS: "view:orders",
+  CREATE_ORDERS = "create:orders",
+  UPDATE_ORDERS = "update:orders",
+  DELETE_ORDERS = "delete:orders",
 
   // Financial management
   VIEW_FINANCES = "view_finances",
@@ -279,7 +283,10 @@ const directRolePermissions: Record<Role, Permission[]> = {
     Permission.MANAGE_APPOINTMENTS,
   ],
 
-  [Role.NURSE]: [Permission.MANAGE_PRESCRIPTIONS, Permission.MANAGE_APPOINTMENTS],
+  [Role.NURSE]: [
+    Permission.MANAGE_PRESCRIPTIONS,
+    Permission.MANAGE_APPOINTMENTS,
+  ],
 
   // Supermarket specific
   [Role.BUTCHER]: [Permission.MANAGE_PRODUCTS],

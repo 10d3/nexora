@@ -152,6 +152,7 @@ enum OrderStatus {
   DELIVERED // For restaurants
   PAID // For retail
   READY
+  DINE_IN
 }
 
 enum OrderType {
