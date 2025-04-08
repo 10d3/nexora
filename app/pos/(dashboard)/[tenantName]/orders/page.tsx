@@ -78,11 +78,10 @@ export default function OrdersPage() {
     setSortConfig({ key, direction });
   };
 
-  const { handleUpdateStatus, getStatusBadge, getPaymentStatusBadge } =
-    useOrderStatusUtils({
-      orders,
-      selectedOrder,
-    });
+  const { getStatusBadge, getPaymentStatusBadge } = useOrderStatusUtils({
+    orders,
+    selectedOrder,
+  });
 
   // Handle view order details
   const handleViewOrderDetails = (order: any) => {
@@ -356,15 +355,15 @@ export default function OrdersPage() {
 
       {/* Order Details Sheet */}
       <OrderDetailsSheet
-        // order={selectedOrder}
-        // isOpen={isOrderDetailsOpen}
-        // onOpenChange={setIsOrderDetailsOpen}
-        // onUpdateStatus={handleUpdateStatus}
-        // getStatusBadge={getStatusBadge}
-        // getPaymentStatusBadge={getPaymentStatusBadge}
-        // formatDate={formatDate}
-        // formatCurrency={formatCurrency}
-        // getInitials={getInitials}
+      // order={selectedOrder}
+      // isOpen={isOrderDetailsOpen}
+      // onOpenChange={setIsOrderDetailsOpen}
+      // onUpdateStatus={handleUpdateStatus}
+      // getStatusBadge={getStatusBadge}
+      // getPaymentStatusBadge={getPaymentStatusBadge}
+      // formatDate={formatDate}
+      // formatCurrency={formatCurrency}
+      // getInitials={getInitials}
       />
     </div>
   );
