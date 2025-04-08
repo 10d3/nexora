@@ -26,10 +26,6 @@ import {
   Trash,
   Check,
   X,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
   User,
   Calendar,
   MapPin,
@@ -50,17 +46,11 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { useReservationMutation } from "@/hooks/use-reservation-mutations";
 import { useQueryClient } from "@tanstack/react-query";
+import { CustomPagination } from "@/components/shared/custom-pagination";
 
 export function ReservationTable() {
   const { reservations, setSelectedReservation } = useReservation();
@@ -384,81 +374,18 @@ export function ReservationTable() {
           </div>
 
           {/* Pagination */}
-          <div className="flex items-center justify-between px-4 py-3 border-t border-border/40">
-            <div className="text-sm text-muted-foreground">
-              {selectedRows.length} of {reservations.length} row(s) selected.
-            </div>
-
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-2 text-sm">
-                Rows per page:
-                <Select
-                  value={rowsPerPage.toString()}
-                  onValueChange={(value) => {
-                    setRowsPerPage(Number.parseInt(value));
-                    setCurrentPage(1);
-                  }}
-                >
-                  <SelectTrigger className="h-8 w-[70px]">
-                    <SelectValue placeholder={rowsPerPage.toString()} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="5">5</SelectItem>
-                    <SelectItem value="10">10</SelectItem>
-                    <SelectItem value="20">20</SelectItem>
-                    <SelectItem value="50">50</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="text-sm text-muted-foreground">
-                Page {currentPage} of {totalPages || 1}
-              </div>
-
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => setCurrentPage(1)}
-                  disabled={currentPage === 1}
-                >
-                  <ChevronsLeft className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() =>
-                    setCurrentPage((prev) => Math.max(prev - 1, 1))
-                  }
-                  disabled={currentPage === 1}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() =>
-                    setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-                  }
-                  disabled={currentPage === totalPages || totalPages === 0}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => setCurrentPage(totalPages)}
-                  disabled={currentPage === totalPages || totalPages === 0}
-                >
-                  <ChevronsRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </div>
+          <CustomPagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          pageSize={rowsPerPage}
+          totalItems={reservations.length}
+          selectedItems={selectedRows.length}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={(size) => {
+            setRowsPerPage(size);
+            setCurrentPage(1);
+          }}
+        />
         </CardContent>
       </Card>
 

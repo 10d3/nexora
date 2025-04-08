@@ -39,10 +39,9 @@ import { OrderHeader } from "./_components/order-header";
 import { OrderStats } from "./_components/order-stats";
 import { OrderFilters } from "./_components/filters/order-filter";
 import { useOrders } from "@/context/order-provider";
-import { OrderStatus } from "@prisma/client";
 import { toast } from "sonner";
-import { Pagination } from "@/components/ui/pagination";
 import { formatCurrency, formatDate, getInitials } from "@/lib/utils";
+import { CustomPagination } from "@/components/shared/custom-pagination";
 
 export default function OrdersPage() {
   // const [isOrderDetailsOpen, setIsOrderDetailsOpen] = useState(false);
@@ -64,7 +63,6 @@ export default function OrdersPage() {
     pageSize,
     totalOrders,
     setIsOrderDetailsOpen,
-    isOrderDetailsOpen
   } = useOrders();
 
   // Handle sorting
@@ -335,10 +333,23 @@ export default function OrdersPage() {
             to {Math.min(currentPage * pageSize, totalOrders)} of {totalOrders}{" "}
             orders
           </div>
-          <Pagination
+          {/* <Pagination
             currentPage={currentPage}
             totalPages={totalPages}
             onPageChange={setCurrentPage}
+          /> */}
+          <CustomPagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalItems={totalOrders}
+            selectedItems={0}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={(size) => {
+              // Add page size change handler if needed
+              // You might need to add this function to your order provider
+              console.log("Page size changed to:", size);
+            }}
           />
         </CardFooter>
       </Card>
