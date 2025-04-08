@@ -18,15 +18,16 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useOrders } from "@/context/order-provider";
+import { OrderStatus } from "@prisma/client";
 
-export type OrderStatus =
-  | "PENDING"
-  | "PROCESSING"
-  | "SHIPPED"
-  | "DELIVERED"
-  | "CANCELLED"
-  | "REFUNDED"
-  | "ON_HOLD";
+// export type OrderStatus =
+//   | "PENDING"
+//   | "PROCESSING"
+//   | "SHIPPED"
+//   | "DELIVERED"
+//   | "CANCELLED"
+//   | "REFUNDED"
+//   | "ON_HOLD";
 
 export type PaymentStatus =
   | "PAID"
@@ -43,7 +44,7 @@ interface UseOrderStatusUtilsProps {
 }
 
 export function useOrderStatusUtils({
-  orders,
+//   orders,
   selectedOrder,
 }: UseOrderStatusUtilsProps) {
   const { updateStatus, setSelectedOrder } = useOrders();
