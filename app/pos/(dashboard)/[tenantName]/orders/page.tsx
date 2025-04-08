@@ -44,7 +44,6 @@ import { formatCurrency, formatDate, getInitials } from "@/lib/utils";
 import { CustomPagination } from "@/components/shared/custom-pagination";
 
 export default function OrdersPage() {
-  // const [isOrderDetailsOpen, setIsOrderDetailsOpen] = useState(false);
   const [sortConfig, setSortConfig] = useState<{
     key: string;
     direction: "asc" | "desc";

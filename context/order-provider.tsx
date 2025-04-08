@@ -13,6 +13,8 @@ import { useOrderMutation } from "@/hooks/use-order-mutations";
 import { OrderStatus, PaymentType } from "@prisma/client";
 import { toast } from "sonner";
 import { useParams } from "next/navigation";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { getOrders, getOrderById } from "@/lib/actions/order-actions";
 
 // Define types for order-related data
 type OrderItem = {
@@ -121,6 +123,7 @@ type OrderProviderProps = {
 export function OrderProvider({ children }: OrderProviderProps) {
   const params = useParams();
   const tenantName = params.tenantName as string;
+  const queryClient = useQueryClient();
 
   // State for orders
   const [orders, setOrders] = useState<Order[]>([]);
@@ -152,123 +155,185 @@ export function OrderProvider({ children }: OrderProviderProps) {
     isPending,
   } = useOrderMutation();
 
-  // Fetch orders on component mount
-  useEffect(() => {
-    fetchOrders();
-  }, [tenantName]);
+  // Prepare date range for query
+  const getDateRange = () => {
+    const now = new Date();
+    let startDate: Date | undefined;
+    let endDate: Date | undefined;
 
-  // Apply filters when filter criteria change
+    if (dateRange === "today") {
+      startDate = new Date(now);
+      startDate.setHours(0, 0, 0, 0);
+      endDate = new Date(now);
+      endDate.setHours(23, 59, 59, 999);
+    } else if (dateRange === "yesterday") {
+      startDate = new Date(now);
+      startDate.setDate(startDate.getDate() - 1);
+      startDate.setHours(0, 0, 0, 0);
+      endDate = new Date(now);
+      endDate.setDate(endDate.getDate() - 1);
+      endDate.setHours(23, 59, 59, 999);
+    } else if (dateRange === "last7days") {
+      startDate = new Date(now);
+      startDate.setDate(startDate.getDate() - 7);
+    } else if (dateRange === "last30days") {
+      startDate = new Date(now);
+      startDate.setDate(startDate.getDate() - 30);
+    }
+
+    return { startDate, endDate };
+  };
+
+  // Use TanStack Query for orders
+  const {
+    data: ordersData,
+    isLoading: isOrdersLoading,
+    error: ordersError,
+  } = useQuery({
+    queryKey: [
+      "orders",
+      tenantName,
+      searchQuery,
+      selectedStatus,
+      selectedPaymentType,
+      dateRange,
+      currentPage,
+      pageSize,
+    ],
+    queryFn: async () => {
+      const { startDate, endDate } = getDateRange();
+      
+      // Convert status and payment type if not "all"
+      const statusFilter = selectedStatus !== "all" 
+        ? selectedStatus as OrderStatus 
+        : undefined;
+        
+      const paymentFilter = selectedPaymentType !== "all" 
+        ? selectedPaymentType as PaymentType 
+        : undefined;
+      
+      // Calculate offset for pagination
+      const offset = (currentPage - 1) * pageSize;
+      
+      return getOrders(
+        tenantName,
+        searchQuery || undefined,
+        statusFilter,
+        paymentFilter,
+        startDate,
+        endDate,
+        pageSize,
+        offset
+      );
+    },
+    enabled: !!tenantName,
+  });
+
+  // Update orders state when query data changes
   useEffect(() => {
-    applyFilters();
-  }, [
-    orders,
-    searchQuery,
-    selectedStatus,
-    selectedPaymentType,
-    dateRange,
-    currentPage,
-  ]);
+    if (ordersData && !ordersData.error && Array.isArray(ordersData.orders)) {
+        const formattedOrders = ordersData.orders.map((order: any) => ({
+          id: order.id,
+          orderNumber: order.orderNumber,
+          customer: {
+            id: order.customerProfile.id,
+            name: `${order.customerProfile.firstName} ${order.customerProfile.lastName}`,
+            email: order.customerProfile.email,
+            phone: order.customerProfile.phone,
+            avatar: order.customerProfile.avatar,
+          },
+        items: order.orderItems.map((item: any) => ({
+          id: item.id,
+          productId: item.productId,
+          name: item.product.name,
+          sku: item.product.sku,
+          quantity: item.quantity,
+          price: item.price,
+          total: item.quantity * item.price,
+          options: item.notes ? item.notes.split(", ") : [],
+        })),
+        total: order.total,
+        tax: order.tax || 0,
+        shipping: order.shipping || 0,
+        discount: order.discount || 0,
+        orderDate: new Date(order.createdAt),
+        status: order.status,
+        paymentType: order.paymentType,
+        shippingAddress: order.shippingAddress || {
+          line1: "",
+          city: "",
+          state: "",
+          postalCode: "",
+          country: "",
+        },
+        billingAddress: order.billingAddress || {
+          line1: "",
+          city: "",
+          state: "",
+          postalCode: "",
+          country: "",
+        },
+        notes: order.notes,
+        trackingNumber: order.trackingNumber,
+        timeline: order.timeline || [],
+      }));
+
+      setOrders(formattedOrders);
+      setFilteredOrders(formattedOrders);
+      setTotalOrders(ordersData.totalOrders || 0);
+    } else if (ordersData?.error) {
+      toast.error(ordersData.error);
+    }
+  }, [ordersData]);
+
+  // Update loading state
+  useEffect(() => {
+    setIsLoading(isOrdersLoading);
+  }, [isOrdersLoading]);
 
   // Update total pages when total orders or page size changes
   useEffect(() => {
     setTotalPages(Math.ceil(totalOrders / pageSize));
   }, [totalOrders, pageSize]);
 
-  // Fetch orders from API
-  const fetchOrders = async () => {
-    setIsLoading(true);
-    try {
-      // Replace with actual API call when ready
-      // const response = await fetch(`/api/tenants/${tenantName}/orders`);
-      // const data = await response.json();
-      // setOrders(data.orders);
-      // setTotalOrders(data.totalOrders || data.orders.length);
-
-      // For now, using mock data or empty array
-      setOrders([]);
-      setFilteredOrders([]);
-      setTotalOrders(0);
-    } catch (error) {
-      console.error("Error fetching orders:", error);
-      toast.error("Failed to load orders");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Apply filters to orders
-  const applyFilters = () => {
-    let filtered = [...orders];
-
-    // Apply search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (order) =>
-          order.orderNumber.toLowerCase().includes(query) ||
-          order.customer.name.toLowerCase().includes(query) ||
-          order.customer.email.toLowerCase().includes(query)
-      );
-    }
-
-    // Apply status filter
-    if (selectedStatus !== "all") {
-      filtered = filtered.filter((order) => order.status === selectedStatus);
-    }
-
-    // Apply payment type filter
-    if (selectedPaymentType !== "all") {
-      filtered = filtered.filter(
-        (order) => order.paymentType === selectedPaymentType
-      );
-    }
-
-    // Apply date range filter
-    const now = new Date();
-    if (dateRange === "today") {
-      filtered = filtered.filter((order) => {
-        const orderDate = new Date(order.orderDate);
-        return orderDate.toDateString() === now.toDateString();
-      });
-    } else if (dateRange === "yesterday") {
-      const yesterday = new Date(now);
-      yesterday.setDate(yesterday.getDate() - 1);
-      filtered = filtered.filter((order) => {
-        const orderDate = new Date(order.orderDate);
-        return orderDate.toDateString() === yesterday.toDateString();
-      });
-    } else if (dateRange === "last7days") {
-      const last7Days = new Date(now);
-      last7Days.setDate(last7Days.getDate() - 7);
-      filtered = filtered.filter((order) => {
-        const orderDate = new Date(order.orderDate);
-        return orderDate >= last7Days;
-      });
-    } else if (dateRange === "last30days") {
-      const last30Days = new Date(now);
-      last30Days.setDate(last30Days.getDate() - 30);
-      filtered = filtered.filter((order) => {
-        const orderDate = new Date(order.orderDate);
-        return orderDate >= last30Days;
-      });
-    }
-
-    // Default sort by order date (newest first)
-    filtered.sort((a, b) => b.orderDate.getTime() - a.orderDate.getTime());
-
-    // Update total count for pagination
-    setTotalOrders(filtered.length);
-
-    // Apply pagination
-    const startIndex = (currentPage - 1) * pageSize;
-    const paginatedOrders = filtered.slice(startIndex, startIndex + pageSize);
-
-    setFilteredOrders(paginatedOrders);
+  // Function to manually update an order in the local cache
+  const updateLocalOrder = (updatedOrder: Order) => {
+    queryClient.setQueryData(
+      [
+        "orders",
+        tenantName,
+        searchQuery,
+        selectedStatus,
+        selectedPaymentType,
+        dateRange,
+        currentPage,
+        pageSize,
+      ],
+      (oldData: any | undefined) => {
+        if (!oldData || !oldData.orders) return oldData;
+        
+        const updatedOrders = oldData.orders.map((order: any) =>
+          order.id === updatedOrder.id ? {
+            ...order,
+            status: updatedOrder.status,
+            paymentType: updatedOrder.paymentType,
+            timeline: updatedOrder.timeline,
+          } : order
+        );
+        
+        return {
+          ...oldData,
+          orders: updatedOrders,
+        };
+      }
+    );
   };
 
   // Refresh orders
-  const refreshOrders = () => {
-    fetchOrders();
+  const refreshOrders = async () => {
+    await queryClient.invalidateQueries({
+      queryKey: ["orders", tenantName],
+    });
   };
 
   // Context value
