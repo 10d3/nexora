@@ -10,7 +10,6 @@ import {
   CircleEllipsis,
   CircleX,
   RefreshCcw,
-  //   Truck,
   XCircle,
   AlertTriangle,
   Package,
@@ -20,23 +19,12 @@ import { toast } from "sonner";
 import { useOrders } from "@/context/order-provider";
 import { OrderStatus } from "@prisma/client";
 
-// export type OrderStatus =
-//   | "PENDING"
-//   | "PROCESSING"
-//   | "SHIPPED"
-//   | "DELIVERED"
-//   | "CANCELLED"
-//   | "REFUNDED"
-//   | "ON_HOLD";
-
 export type PaymentStatus =
   | "PAID"
   | "UNPAID"
   | "PARTIALLY_PAID"
   | "REFUNDED"
   | "FAILED";
-
-// ... existing type definitions ...
 
 interface UseOrderStatusUtilsProps {
   orders: any[];
