@@ -42,9 +42,10 @@ import { useOrders } from "@/context/order-provider";
 import { OrderStatus } from "@prisma/client";
 import { toast } from "sonner";
 import { Pagination } from "@/components/ui/pagination";
+import { formatCurrency, formatDate, getInitials } from "@/lib/utils";
 
 export default function OrdersPage() {
-  const [isOrderDetailsOpen, setIsOrderDetailsOpen] = useState(false);
+  // const [isOrderDetailsOpen, setIsOrderDetailsOpen] = useState(false);
   const [sortConfig, setSortConfig] = useState<{
     key: string;
     direction: "asc" | "desc";
@@ -62,6 +63,8 @@ export default function OrdersPage() {
     setCurrentPage,
     pageSize,
     totalOrders,
+    setIsOrderDetailsOpen,
+    isOrderDetailsOpen
   } = useOrders();
 
   // Handle sorting
@@ -82,35 +85,6 @@ export default function OrdersPage() {
       orders,
       selectedOrder,
     });
-
-  // Format date
-  const formatDate = (date: Date) => {
-    return new Intl.DateTimeFormat("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "numeric",
-      minute: "numeric",
-    }).format(new Date(date));
-  };
-
-  // Format currency
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(amount);
-  };
-
-  // Get initials from name
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((part) => part[0])
-      .join("")
-      .toUpperCase()
-      .substring(0, 2);
-  };
 
   // Handle view order details
   const handleViewOrderDetails = (order: any) => {
@@ -371,15 +345,15 @@ export default function OrdersPage() {
 
       {/* Order Details Sheet */}
       <OrderDetailsSheet
-        order={selectedOrder}
-        isOpen={isOrderDetailsOpen}
-        onOpenChange={setIsOrderDetailsOpen}
-        onUpdateStatus={handleUpdateStatus}
-        getStatusBadge={getStatusBadge}
-        getPaymentStatusBadge={getPaymentStatusBadge}
-        formatDate={formatDate}
-        formatCurrency={formatCurrency}
-        getInitials={getInitials}
+        // order={selectedOrder}
+        // isOpen={isOrderDetailsOpen}
+        // onOpenChange={setIsOrderDetailsOpen}
+        // onUpdateStatus={handleUpdateStatus}
+        // getStatusBadge={getStatusBadge}
+        // getPaymentStatusBadge={getPaymentStatusBadge}
+        // formatDate={formatDate}
+        // formatCurrency={formatCurrency}
+        // getInitials={getInitials}
       />
     </div>
   );

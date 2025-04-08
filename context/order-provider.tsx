@@ -105,6 +105,9 @@ type OrderContextType = {
   pageSize: number;
   totalOrders: number;
   setCurrentPage: (page: number) => void;
+  // Add isOrderDetailsOpen state
+  isOrderDetailsOpen: boolean;
+  setIsOrderDetailsOpen: (isOpen: boolean) => void;
 };
 
 // Create the context
@@ -136,6 +139,9 @@ export function OrderProvider({ children }: OrderProviderProps) {
   const [pageSize, setPageSize] = useState(10);
   const [totalOrders, setTotalOrders] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+
+  // Is detail sheet open
+  const [isOrderDetailsOpen, setIsOrderDetailsOpen] = useState(false);
 
   // Get mutation functions
   const {
@@ -292,6 +298,9 @@ export function OrderProvider({ children }: OrderProviderProps) {
     pageSize,
     totalOrders,
     setCurrentPage,
+    // Add detail sheet state
+    isOrderDetailsOpen,
+    setIsOrderDetailsOpen,
   };
 
   return (
