@@ -51,14 +51,14 @@ type Order = {
   customer: Customer;
   items: OrderItem[];
   total: number;
-//   subtotal: number;
+  //   subtotal: number;
   tax: number;
   shipping: number;
   discount: number;
   orderDate: Date;
   status: OrderStatus;
   paymentType: PaymentType;
-//   paymentMethod?: string;
+  //   paymentMethod?: string;
   shippingAddress: Address;
   billingAddress: Address;
   notes?: string;
@@ -202,19 +202,19 @@ export function OrderProvider({ children }: OrderProviderProps) {
     ],
     queryFn: async () => {
       const { startDate, endDate } = getDateRange();
-      
+
       // Convert status and payment type if not "all"
-      const statusFilter = selectedStatus !== "all" 
-        ? selectedStatus as OrderStatus 
-        : undefined;
-        
-      const paymentFilter = selectedPaymentType !== "all" 
-        ? selectedPaymentType as PaymentType 
-        : undefined;
-      
+      const statusFilter =
+        selectedStatus !== "all" ? (selectedStatus as OrderStatus) : undefined;
+
+      const paymentFilter =
+        selectedPaymentType !== "all"
+          ? (selectedPaymentType as PaymentType)
+          : undefined;
+
       // Calculate offset for pagination
       const offset = (currentPage - 1) * pageSize;
-      
+
       return getOrders(
         tenantName,
         searchQuery || undefined,
@@ -232,16 +232,16 @@ export function OrderProvider({ children }: OrderProviderProps) {
   // Update orders state when query data changes
   useEffect(() => {
     if (ordersData && !ordersData.error && Array.isArray(ordersData.orders)) {
-        const formattedOrders = ordersData.orders.map((order: any) => ({
-          id: order.id,
-          orderNumber: order.orderNumber,
-          customer: {
-            id: order.customerProfile.id,
-            name: `${order.customerProfile.firstName} ${order.customerProfile.lastName}`,
-            email: order.customerProfile.email,
-            phone: order.customerProfile.phone,
-            avatar: order.customerProfile.avatar,
-          },
+      const formattedOrders = ordersData.orders.map((order: any) => ({
+        id: order.id,
+        orderNumber: order.orderNumber,
+        customer: {
+          id: order.customerProfile.id,
+          name: `${order.customerProfile.firstName} ${order.customerProfile.lastName}`,
+          email: order.customerProfile.email,
+          phone: order.customerProfile.phone,
+          avatar: order.customerProfile.avatar,
+        },
         items: order.orderItems.map((item: any) => ({
           id: item.id,
           productId: item.productId,
@@ -311,16 +311,18 @@ export function OrderProvider({ children }: OrderProviderProps) {
       ],
       (oldData: any | undefined) => {
         if (!oldData || !oldData.orders) return oldData;
-        
+
         const updatedOrders = oldData.orders.map((order: any) =>
-          order.id === updatedOrder.id ? {
-            ...order,
-            status: updatedOrder.status,
-            paymentType: updatedOrder.paymentType,
-            timeline: updatedOrder.timeline,
-          } : order
+          order.id === updatedOrder.id
+            ? {
+                ...order,
+                status: updatedOrder.status,
+                paymentType: updatedOrder.paymentType,
+                timeline: updatedOrder.timeline,
+              }
+            : order
         );
-        
+
         return {
           ...oldData,
           orders: updatedOrders,
