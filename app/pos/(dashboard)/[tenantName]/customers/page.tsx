@@ -149,7 +149,7 @@ export default function CustomersPage() {
 
   // Handle view customer details
   const handleViewDetails = (customerId: string) => {
-    router.push(`/pos/${tenantId}/customers/${customerId}`);
+    router.push(`customers/${customerId}`);
   };
 
   return (
