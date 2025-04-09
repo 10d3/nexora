@@ -29,14 +29,18 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { useResourceMutation } from "@/hooks/use-resource-mutations";
 
 const roomFormSchema = z.object({
   number: z.string().min(1, {
     message: "Room number is required.",
   }),
-  type: z.string().min(1, {
-    message: "Please select a room type.",
-  }),
+  // Make sure type is required and has a default value
+  roomType: z
+    .string({
+      required_error: "Room type is required",
+    })
+    .min(1, "Room type is required"),
   capacity: z.coerce.number().int().positive({
     message: "Capacity must be a positive number.",
   }),
@@ -44,36 +48,62 @@ const roomFormSchema = z.object({
     message: "Rate must be a positive number.",
   }),
   status: z.string().default("AVAILABLE"),
-  roomTypeId: z.string().optional(),
 });
 
 type RoomFormValues = z.infer<typeof roomFormSchema>;
 
 const defaultValues: Partial<RoomFormValues> = {
   number: "",
-  type: "",
+  roomType: "Standard", // Set a default room type
   capacity: 1,
   rate: 0,
   status: "AVAILABLE",
-  roomTypeId: "",
 };
 
-export function RoomForm() {
+interface RoomFormProps {
+  onSuccess?: () => void;
+}
+
+export function RoomForm({ onSuccess }: RoomFormProps) {
+  const { createResource, isPending } = useResourceMutation();
+
   const form = useForm<RoomFormValues>({
     resolver: zodResolver(roomFormSchema),
     defaultValues,
   });
 
-  function onSubmit(data: RoomFormValues) {
-    toast.success("Room created", {
-      description: "The room has been successfully created.",
-      action: {
-        label: "View",
-        onClick: () => console.log("View room:", data),
-      },
-    });
-    console.log(data);
-    form.reset(defaultValues);
+  async function onSubmit(data: RoomFormValues) {
+
+    console.log("Room data :", data)
+    try {
+      // Ensure room type is present and valid
+      if (!data.roomType) {
+        toast.error("Room type is required");
+        return;
+      }
+
+      // Format the data before sending
+      const formattedData = {
+        ...data,
+        capacity: Number(data.capacity),
+        rate: Number(data.rate),
+        roomType: data.roomType, // No need to trim as Select provides clean values
+      };
+
+      console.log("Submitting room data:", formattedData);
+
+      await createResource(formattedData);
+
+      toast.success("Room created successfully");
+      form.reset(defaultValues);
+      onSuccess?.();
+    } catch (error) {
+      console.error("Error creating room:", error);
+      toast.error("Failed to create room", {
+        description:
+          error instanceof Error ? error.message : "Please try again",
+      });
+    }
   }
 
   return (
@@ -106,7 +136,7 @@ export function RoomForm() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <FormField
                 control={form.control}
-                name="type"
+                name="roomType"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Room Type</FormLabel>
@@ -173,7 +203,12 @@ export function RoomForm() {
                   <FormItem>
                     <FormLabel>Capacity</FormLabel>
                     <FormControl>
-                      <Input type="number" min="1" {...field} />
+                      <Input
+                        type="number"
+                        min="1"
+                        {...field}
+                        onChange={(e) => field.onChange(Number(e.target.value))}
+                      />
                     </FormControl>
                     <FormDescription>Maximum number of guests.</FormDescription>
                     <FormMessage />
@@ -187,7 +222,13 @@ export function RoomForm() {
                   <FormItem>
                     <FormLabel>Rate (per night)</FormLabel>
                     <FormControl>
-                      <Input type="number" min="0" step="0.01" {...field} />
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        {...field}
+                        onChange={(e) => field.onChange(Number(e.target.value))}
+                      />
                     </FormControl>
                     <FormDescription>
                       Price per night in your currency.
@@ -197,27 +238,8 @@ export function RoomForm() {
                 )}
               />
             </div>
-            <FormField
-              control={form.control}
-              name="roomTypeId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Room Type ID (Optional)</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="Enter room type ID if applicable"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    Reference to a specific room type configuration.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <Button type="submit" className="w-full">
-              Create Room
+            <Button type="submit" className="w-full" disabled={isPending}>
+              {isPending ? "Creating..." : "Create Room"}
             </Button>
           </form>
         </Form>

@@ -5,6 +5,10 @@ export enum Permission {
   // General permissions
   VIEW_DASHBOARD = "view_dashboard",
 
+  // Resource management
+  VIEW_RESOURCES = "view_resources",
+  CREATE_RESOURCES = "create_resources",
+
   // User management
   MANAGE_USERS = "manage_users",
   VIEW_USERS = "view_users",

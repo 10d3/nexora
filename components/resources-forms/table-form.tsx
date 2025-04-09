@@ -29,6 +29,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { useResourceMutation } from "@/hooks/use-resource-mutations";
+// import { useDashboard } from "@/context/dashboard-provider";
 
 const tableFormSchema = z.object({
   number: z.string().min(1, {
@@ -48,22 +50,34 @@ const defaultValues: Partial<TableFormValues> = {
   status: "AVAILABLE",
 };
 
-export function TableForm() {
+interface TableFormProps {
+  onSuccess?: () => void;
+}
+
+export function TableForm({ onSuccess }: TableFormProps) {
+  const { createResource, isPending } = useResourceMutation();
+
   const form = useForm<TableFormValues>({
     resolver: zodResolver(tableFormSchema),
     defaultValues,
   });
 
-  function onSubmit(data: TableFormValues) {
-    toast.success("Table created", {
-      description: "The table has been successfully created.",
-      action: {
-        label: "View",
-        onClick: () => console.log("View table:", data),
-      },
-    });
-    console.log(data);
-    form.reset(defaultValues);
+  async function onSubmit(data: TableFormValues) {
+    try {
+      await createResource({
+        ...data,
+        capacity: Number(data.capacity), // Ensure capacity is a number
+      });
+
+      form.reset(defaultValues);
+      onSuccess?.(); // Call onSuccess callback if provided
+    } catch (error) {
+      console.error("Error creating table:", error);
+      toast.error("Failed to create table", {
+        description:
+          "Please try again or contact support if the issue persists.",
+      });
+    }
   }
 
   return (
@@ -138,8 +152,8 @@ export function TableForm() {
                 )}
               />
             </div>
-            <Button type="submit" className="w-full">
-              Create Table
+            <Button type="submit" className="w-full" disabled={isPending}>
+              {isPending ? "Creating..." : "Create Table"}
             </Button>
           </form>
         </Form>

@@ -35,7 +35,7 @@ const assetFormSchema = z.object({
     message: "Name must be at least 2 characters.",
   }),
   type: z.string().min(1, {
-    message: "Please select an asset type.",
+    message: "Asset type is required.",
   }),
   status: z.string().default("AVAILABLE"),
   condition: z.string().default("GOOD"),
