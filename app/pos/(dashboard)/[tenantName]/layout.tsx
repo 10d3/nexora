@@ -10,10 +10,11 @@ import { Separator } from "@/components/ui/separator";
 import { auth } from "@/lib/auth";
 import { ReactNode } from "react";
 // import { DashboardProvider } from "@/context/dashboard-provider";
-import { getAllTenants } from "@/lib/utils/tenant-utils";
+// import { getAllTenants } from "@/lib/utils/tenant-utils";
 import { env } from "@/lib/env";
 import ProviderPos from "./providers-pos";
 import { Toaster } from "sonner";
+import { getCachingAllTenants } from "@/lib/caching/caching-actions";
 
 export async function generateMetadata({
   params,
@@ -22,7 +23,7 @@ export async function generateMetadata({
 }) {
   const paramsName = await params;
   const tenantName = paramsName.tenantName;
-  const { activeTenant } = await getAllTenants(true, tenantName);
+  const { activeTenant } = await getCachingAllTenants(true, tenantName);
   return {
     title: `${activeTenant?.name} | Dashboard`,
     description: "Dashboard for your business",
@@ -65,7 +66,7 @@ export default async function PosLayout({
     console.log("session is : ", session);
 
     // Get all tenants, active tenant, and formatted tenant data
-    const { allTenants, activeTenant, tenantsData } = await getAllTenants(
+    const { allTenants, activeTenant, tenantsData } = await getCachingAllTenants(
       false,
       tenantName,
       session.user.id as string
