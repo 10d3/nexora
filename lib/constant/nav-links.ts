@@ -301,7 +301,7 @@ const businessSpecificNavLinks: Record<BusinessType, NavItem[]> = {
   HOTEL: [
     {
       title: "Rooms",
-      url: "/rooms",
+      url: "/resources",
       icon: Bed,
       hasSubmenu: false,
     },
