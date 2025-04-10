@@ -4,6 +4,7 @@
 import React, { createContext, useContext, useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getMenuItems, getMenuCategories } from "@/lib/actions/menu.actions";
+import { useDashboard } from "./dashboard-provider";
 
 type MenuContextType = {
   menuItems: any[];
@@ -24,11 +25,10 @@ const MenuContext = createContext<MenuContextType | undefined>(undefined);
 
 export function MenuProvider({
   children,
-  tenantId,
 }: {
   children: React.ReactNode;
-  tenantId: string;
 }) {
+    const {tenantId} = useDashboard()
   const [currentCategoryFilter, setCurrentCategoryFilter] = useState<
     string | null
   >(null);
@@ -54,7 +54,7 @@ export function MenuProvider({
     ],
     queryFn: async () => {
       const response = await getMenuItems(
-        tenantId,
+        tenantId as string,
         currentCategoryFilter || undefined,
         currentAvailabilityFilter !== null
           ? currentAvailabilityFilter
@@ -75,7 +75,7 @@ export function MenuProvider({
   } = useQuery({
     queryKey: ["menuCategories", tenantId],
     queryFn: async () => {
-      const response = await getMenuCategories(tenantId);
+      const response = await getMenuCategories(tenantId as string);
       return response.success ? response.data : [];
     },
     enabled: !!tenantId,

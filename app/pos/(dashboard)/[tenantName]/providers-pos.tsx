@@ -7,6 +7,7 @@ import { CustomerProvider } from "@/context/customer-provider";
 import { StaffProvider } from "@/context/staff-provider";
 import React from "react";
 import { ResourceProvider } from "@/context/resource-provider";
+import { MenuProvider } from "@/context/menu-provider";
 
 export default function ProviderPos({
   tenant,
@@ -22,7 +23,9 @@ export default function ProviderPos({
           <StaffProvider>
             <InventoryProvider>
               <OrderProvider>
-                <ResourceProvider>{children}</ResourceProvider>
+                <ResourceProvider>
+                  <MenuProvider>{children}</MenuProvider>
+                </ResourceProvider>
               </OrderProvider>
             </InventoryProvider>
           </StaffProvider>
