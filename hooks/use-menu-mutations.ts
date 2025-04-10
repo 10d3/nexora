@@ -7,6 +7,7 @@ import {
   updateMenuItem,
   deleteMenuItem,
   toggleMenuItemAvailability,
+  createCategory,
 } from "@/lib/actions/menu.actions";
 import { toast } from "sonner";
 
@@ -92,10 +93,8 @@ export function useMenuMutations(tenantId: string) {
       ]);
 
       // Get current menu items
-      const currentMenuItems = queryClient.getQueryData<any[]>([
-        "menuItems",
-        tenantId,
-      ]) || [];
+      const currentMenuItems =
+        queryClient.getQueryData<any[]>(["menuItems", tenantId]) || [];
 
       // Create updated menu items array
       const updatedMenuItems = currentMenuItems.map((item) => {
@@ -157,10 +156,8 @@ export function useMenuMutations(tenantId: string) {
       ]);
 
       // Get current menu items
-      const currentMenuItems = queryClient.getQueryData<any[]>([
-        "menuItems",
-        tenantId,
-      ]) || [];
+      const currentMenuItems =
+        queryClient.getQueryData<any[]>(["menuItems", tenantId]) || [];
 
       // Filter out the deleted item
       const updatedMenuItems = currentMenuItems.filter(
@@ -219,15 +216,17 @@ export function useMenuMutations(tenantId: string) {
       ]);
 
       // Get current menu items
-      const currentMenuItems = queryClient.getQueryData<any[]>([
-        "menuItems",
-        tenantId,
-      ]) || [];
+      const currentMenuItems =
+        queryClient.getQueryData<any[]>(["menuItems", tenantId]) || [];
 
       // Toggle availability for the item
       const updatedMenuItems = currentMenuItems.map((item) => {
         if (item.id === itemId) {
-          return { ...item, isAvailable: !item.isAvailable, updatedAt: new Date() };
+          return {
+            ...item,
+            isAvailable: !item.isAvailable,
+            updatedAt: new Date(),
+          };
         }
         return item;
       });
@@ -268,14 +267,103 @@ export function useMenuMutations(tenantId: string) {
     },
   });
 
+  const createCategoryMutation = useMutation({
+    mutationFn: async (categoryData: {
+      name: string;
+      description?: string;
+    }) => {
+      return createCategory(tenantId, categoryData);
+    },
+    onMutate: async (newCategory) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({
+        queryKey: ["menuCategories", tenantId],
+      });
+
+      // Snapshot the previous value
+      const previousCategories = queryClient.getQueryData([
+        "menuCategories",
+        tenantId,
+      ]);
+
+      // Create a temporary category with a temporary ID
+      const tempCategory = {
+        ...newCategory,
+        id: `temp-${Date.now()}`,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      // Optimistically update the cache
+      queryClient.setQueryData(["menuCategories", tenantId], (old: any) => {
+        if (!old) return [tempCategory];
+        return [...old, tempCategory];
+      });
+
+      // Return a context object with the snapshot
+      return { previousCategories };
+    },
+    onError: (err, newCategory, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousCategories) {
+        queryClient.setQueryData(
+          ["menuCategories", tenantId],
+          context.previousCategories
+        );
+      }
+      toast.error("Failed to create category", {
+        description: "Please try again later.",
+      });
+    },
+    onSuccess: (result) => {
+      if (result.success) {
+        toast.success("Category created", {
+          description: `${result.data.name} has been added to categories.`,
+        });
+        // Invalidate and refetch
+        queryClient.invalidateQueries({
+          queryKey: ["menuCategories", tenantId],
+        });
+      } else {
+        toast.error("Failed to create category", {
+          description: result.error || "Please try again later.",
+        });
+      }
+    },
+  });
+
+  // Wrap the createCategory mutation to return a Promise with the result
+  const createCategoryWithPromise = async (categoryData: {
+    name: string;
+    description?: string;
+  }) => {
+    return new Promise<{ success: boolean; data?: any; error?: string }>(
+      (resolve) => {
+        createCategoryMutation.mutate(categoryData, {
+          onSuccess: (result) => {
+            resolve(result);
+          },
+          onError: (error: any) => {
+            resolve({
+              success: false,
+              error: error.message || "Failed to create category",
+            });
+          },
+        });
+      }
+    );
+  };
+
   return {
     createMenuItem: createMutation.mutate,
     updateMenuItem: updateMutation.mutate,
     deleteMenuItem: deleteMutation.mutate,
     toggleMenuItemAvailability: toggleAvailabilityMutation.mutate,
+    createCategory: createCategoryWithPromise,
     isCreating: createMutation.isPending,
     isUpdating: updateMutation.isPending,
     isDeleting: deleteMutation.isPending,
     isTogglingAvailability: toggleAvailabilityMutation.isPending,
+    isCreatingCategory: createCategoryMutation.isPending,
   };
 }

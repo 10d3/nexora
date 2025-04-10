@@ -35,6 +35,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { PlusCircle } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { toast } from "sonner";
 
 const menuItemSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -65,8 +68,13 @@ export function MenuDialog({
   initialData,
 }: MenuDialogProps) {
   const { categories } = useMenu();
-  const { createMenuItem, updateMenuItem } = useMenuMutations(tenantId);
+  const { createMenuItem, updateMenuItem, createCategory } =
+    useMenuMutations(tenantId);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showNewCategoryForm, setShowNewCategoryForm] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [newCategoryDescription, setNewCategoryDescription] = useState("");
+  const [isCreatingCategory, setIsCreatingCategory] = useState(false);
 
   const defaultValues: Partial<MenuItemFormValues> = {
     name: initialData?.name || "",
@@ -180,7 +188,16 @@ export function MenuDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Category</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select
+                    onValueChange={(value) => {
+                      if (value === "create-new") {
+                        setShowNewCategoryForm(true);
+                      } else {
+                        field.onChange(value);
+                      }
+                    }}
+                    value={field.value}
+                  >
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select a category" />
@@ -193,8 +210,94 @@ export function MenuDialog({
                           {category.name}
                         </SelectItem>
                       ))}
+                      <Separator className="my-2" />
+                      <SelectItem value="create-new" className="text-primary">
+                        <div className="flex items-center">
+                          <PlusCircle className="mr-2 h-4 w-4" />
+                          Create new category
+                        </div>
+                      </SelectItem>
                     </SelectContent>
                   </Select>
+                  {showNewCategoryForm && (
+                    <div className="mt-2 space-y-2 rounded-md border p-3">
+                      <div className="text-sm font-medium">
+                        Create New Category
+                      </div>
+                      <div className="space-y-2">
+                        <Input
+                          placeholder="Category name"
+                          value={newCategoryName}
+                          onChange={(e) => setNewCategoryName(e.target.value)}
+                        />
+                        <Textarea
+                          placeholder="Category description (optional)"
+                          value={newCategoryDescription}
+                          onChange={(e) =>
+                            setNewCategoryDescription(e.target.value)
+                          }
+                        />
+                        <div className="flex justify-end space-x-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setShowNewCategoryForm(false);
+                              setNewCategoryName("");
+                              setNewCategoryDescription("");
+                            }}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            disabled={
+                              !newCategoryName.trim() || isCreatingCategory
+                            }
+                            onClick={async () => {
+                              if (!newCategoryName.trim()) return;
+
+                              setIsCreatingCategory(true);
+                              try {
+                                const result = await createCategory({
+                                  name: newCategoryName.trim(),
+                                  description:
+                                    newCategoryDescription.trim() || undefined,
+                                });
+
+                                if (result.success) {
+                                  // Set the newly created category as the selected one
+                                  field.onChange(result.data.id);
+                                  setShowNewCategoryForm(false);
+                                  setNewCategoryName("");
+                                  setNewCategoryDescription("");
+                                  toast.success(
+                                    "Category created successfully"
+                                  );
+                                } else {
+                                  toast.error("Failed to create category", {
+                                    description: result.error,
+                                  });
+                                }
+                              } catch (error) {
+                                console.error(
+                                  "Error creating category:",
+                                  error
+                                );
+                                toast.error("Failed to create category");
+                              } finally {
+                                setIsCreatingCategory(false);
+                              }
+                            }}
+                          >
+                            {isCreatingCategory ? "Creating..." : "Create"}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   <FormMessage />
                 </FormItem>
               )}

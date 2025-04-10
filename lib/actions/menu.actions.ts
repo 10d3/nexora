@@ -238,6 +238,42 @@ export async function deleteMenuItem(
 }
 
 /**
+ * Create a new category
+ */
+export async function createCategory(
+  tenantId: string,
+  data: { name: string; description?: string }
+): Promise<ApiResponse<any>> {
+  try {
+    if (!tenantId) {
+      return { success: false, error: "Tenant ID is required" };
+    }
+
+    // Validate required fields
+    if (!data.name) {
+      return { success: false, error: "Category name is required" };
+    }
+
+    // Create the category
+    const category = await prisma.category.create({
+      data: {
+        name: data.name,
+        description: data.description || null,
+        tenantId,
+      },
+    });
+
+    // Revalidate the menu items path
+    revalidatePath(`/pos/menu`);
+
+    return { success: true, data: category };
+  } catch (error: any) {
+    console.error("Error creating category:", error);
+    return { success: false, error: error.message || "Failed to create category" };
+  }
+}
+
+/**
  * Get categories for menu items
  */
 export async function getMenuCategories(
@@ -248,13 +284,10 @@ export async function getMenuCategories(
       return { success: false, error: "Tenant ID is required" };
     }
 
-    // Get categories that have menu items
+    // Get all categories for the tenant
     const categories = await prisma.category.findMany({
       where: {
         tenantId,
-        menuItems: {
-          some: {},
-        },
       },
       orderBy: {
         name: 'asc',
