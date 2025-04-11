@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useDashboard } from "@/context/dashboard-provider";
-import { CalendarIcon, LayoutGrid, ListIcon, Plus } from "lucide-react";
+import { CalendarIcon, Grid2X2, LayoutGrid, ListIcon, Plus } from "lucide-react";
 import { PermissionGate } from "@/components/shared/permission-gate";
 import { Permission } from "@/lib/permissions/role-permissions";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -15,12 +15,13 @@ import { MenuFilters } from "./_components/filters/menu-filters";
 import { MenuTable } from "./_components/view/menu-table";
 import { MenuGrid } from "./_components/view/menu-grid";
 import { MenuCategories } from "./_components/view/menu-categories";
+import { MenuItemGrid } from "./_components/view/menu-item-grid";
 import { MenuDialog } from "./_components/menu-dialog";
 
 export default function MenuPage() {
   const { tenantId, businessType } = useDashboard();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [view, setView] = useState<string>("table");
+  const [view, setView] = useState<string>("categories-grid");
 
   return (
     <div className="space-y-4">
@@ -63,6 +64,10 @@ export default function MenuPage() {
 
         <Tabs value={view} onValueChange={(v) => setView(v)}>
           <TabsList>
+            <TabsTrigger value="categories-grid">
+              <Grid2X2 className="h-4 w-4 mr-2" />
+              Categories
+            </TabsTrigger>
             <TabsTrigger value="table">
               <ListIcon className="h-4 w-4 mr-2" />
               List
@@ -73,9 +78,12 @@ export default function MenuPage() {
             </TabsTrigger>
             <TabsTrigger value="categories">
               <CalendarIcon className="h-4 w-4 mr-2" />
-              Categories
+              By Category
             </TabsTrigger>
           </TabsList>
+          <TabsContent value="categories-grid" className="mt-4">
+            <MenuItemGrid />
+          </TabsContent>
           <TabsContent value="table" className="mt-4">
             <MenuTable />
           </TabsContent>
