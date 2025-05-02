@@ -50,19 +50,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
-  cookies: {
-    // Configure cookies to work across subdomains
-    sessionToken: {
-      name: `__Secure-next-auth.session-token`,
-      options: {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-        secure: process.env.NODE_ENV === "production",
-        domain: `.${process.env.NEXT_PUBLIC_ROOT_DOMAIN}` // Allow sharing across subdomains
-      }
-    }
-  },
   pages: {
     signIn: "/sign-in",
     signOut: "/sign-out",
