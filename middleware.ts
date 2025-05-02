@@ -54,7 +54,6 @@ export default async function middleware(req: NextRequest) {
     const session = await getToken({ req, secret: process.env.AUTH_SECRET });
     console.log("session from middleware", session);
 
-    // Fix the conditional logic with proper parentheses
     if (!session && path !== "/sign-in" && path !== "/sign-up") {
       return NextResponse.redirect(new URL("/sign-in", req.url));
     } else if (session && (path === "/sign-in" || path === "/sign-up")) {
@@ -72,7 +71,6 @@ export default async function middleware(req: NextRequest) {
     const session = await getToken({ req, secret: process.env.AUTH_SECRET });
     console.log("session from middleware", session);
 
-    // Fix the conditional logic with proper parentheses
     if (!session && path !== "/sign-in" && path !== "/sign-up") {
       return NextResponse.redirect(new URL("/sign-in", req.url));
     } else if (session && (path === "/sign-in" || path === "/sign-up")) {
