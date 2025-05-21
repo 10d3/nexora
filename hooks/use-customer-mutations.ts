@@ -66,7 +66,7 @@ export function useCustomerMutation(tenantId: string) {
                 ...old,
                 data: old.data.map((customer: any) =>
                   customer.id === context.tempCustomer.id
-                    ? { ...result.data }
+                    ? result.data
                     : customer
                 ),
               };

@@ -3,13 +3,18 @@
 "use server";
 import { OrderStatus, TableStatus } from "@prisma/client";
 import { prisma } from "../prisma";
+// import { syncService } from "../services";
 
 // Product actions
 export async function getProducts(businessType: string, tenantId: string) {
+  // return syncService.executeAction(
+  //   "getProducts",
+  //   { businessType, tenantId },
+  //   async (params) => {
   try {
     const products = await prisma.product.findMany({
       where: {
-        tenantId,
+        tenantId: tenantId,
         ...(businessType === "restaurant" ? { isService: false } : {}),
         ...(businessType === "salon" ? { isService: true } : {}),
         deletedAt: null,
@@ -30,6 +35,8 @@ export async function getProducts(businessType: string, tenantId: string) {
     return { error: "Failed to fetch products" };
   }
 }
+// );
+// }
 
 export async function getProductStats(
   businessType: string,
@@ -197,10 +204,14 @@ export async function getOrders(
   tenantId: string,
   limit = 10
 ) {
+  // return syncService.executeAction(
+  //   "getOrders",
+  //   { businessType, tenantId, limit },
+  //   async (params) => {
   try {
     const orders = await prisma.order.findMany({
       where: {
-        tenantId,
+        tenantId: tenantId,
         deletedAt: null,
       },
       include: {
@@ -1639,7 +1650,8 @@ async function getCustomerRetentionData(
   });
 
   // Count unique customers
-  const uniqueCustomers = new Set(appointments.map((a) => a.customerProfileId)).size;
+  const uniqueCustomers = new Set(appointments.map((a) => a.customerProfileId))
+    .size;
 
   // Count customers with multiple appointments
   const customerCounts: Record<string, number> = {};

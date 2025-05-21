@@ -307,7 +307,7 @@ const businessSpecificNavLinks: Record<BusinessType, NavItem[]> = {
     },
     {
       title: "Bookings",
-      url: "/bookings",
+      url: "/reservations",
       icon: Calendar,
       hasSubmenu: false,
     },

@@ -6,6 +6,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { checkPermission } from "../permissions/server-permissions";
 import { Permission } from "../permissions/role-permissions";
+import db from "../services";
+// import { createEntity } from "../services/dry-db";
 
 // Validation schema for creating/updating customers
 const customerSchema = z.object({
@@ -37,7 +39,10 @@ export async function getCustomers(
     // Check if user has permission to view customers
     const hasPermission = await checkPermission(Permission.VIEW_CUSTOMERS);
     if (!hasPermission) {
-      return { success: false, error: "You don't have permission to view customers" };
+      return {
+        success: false,
+        error: "You don't have permission to view customers",
+      };
     }
 
     // Build filter conditions
@@ -73,14 +78,14 @@ export async function getCustomers(
       skip: offset,
     });
 
-    return { 
-      success: true, 
+    return {
+      success: true,
       data: customers,
       meta: {
         total: totalCount,
         limit,
         offset,
-      }
+      },
     };
   } catch (error) {
     console.error("Error fetching customers:", error);
@@ -96,7 +101,20 @@ export async function getCustomerById(tenantId: string, customerId: string) {
     // Check if user has permission to view customers
     const hasPermission = await checkPermission(Permission.VIEW_CUSTOMERS);
     if (!hasPermission) {
-      return { success: false, error: "You don't have permission to view customers" };
+      return {
+        success: false,
+        error: "You don't have permission to view customers",
+      };
+    }
+
+    if (!navigator.onLine) {
+      const customer = await db.getCustomerIdByTenant(customerId, tenantId);
+
+      if (!customer) {
+        return { success: false, error: "Customer not found" };
+      }
+
+      return { success: true, data: customer };
     }
 
     const customer = await prisma.customerProfile.findFirst({
@@ -120,12 +138,62 @@ export async function getCustomerById(tenantId: string, customerId: string) {
 /**
  * Create a new customer
  */
-export async function createCustomer(data: z.infer<typeof customerSchema>, tenantId: string) {
+// export async function createCustomer(
+//   data: z.infer<typeof customerSchema>,
+//   tenantId: string
+// ) {
+//   return createEntity({
+//     entityName: "customer",
+//     data,
+//     schema: customerSchema,
+//     tenantId,
+//     requiredPermission: Permission.MANAGE_CUSTOMERS,
+//     dbSaveFunction: db.saveCustomerProfile.bind(db),
+//     prismaFunction: (validatedData) => prisma.customerProfile.create({
+//       data: {
+//         firstName: validatedData.firstName,
+//         lastName: validatedData.lastName,
+//         email: validatedData.email,
+//         phone: validatedData.phone,
+//         address: validatedData.address,
+//         dateOfBirth: validatedData.dateOfBirth,
+//         gender: validatedData.gender,
+//         notes: validatedData.notes,
+//         loyaltyPoints: validatedData.loyaltyPoints || 0,
+//         tags: validatedData.tags,
+//         tenantId,
+//         customerSince: new Date(),
+//       },
+//     }),
+//     revalidatePaths: [`/pos/${tenantId}/customers`],
+//     // Optional transformations for offline data
+//     offlineDataTransform: (data) => ({
+//       ...data,
+//       tenantId: tenantId,
+//       email: data.email || undefined,
+//       phone: data.phone || undefined,
+//       address: data.address || undefined,
+//       dateOfBirth: data.dateOfBirth || undefined,
+//       gender: data.gender || undefined,
+//       notes: data.notes || undefined,
+//       tags: data.tags || undefined,
+//       customerSince: new Date()
+//     })
+//   });
+// }
+
+export async function createCustomer(
+  data: z.infer<typeof customerSchema>,
+  tenantId: string
+) {
   try {
     // Check if user has permission to manage customers
     const hasPermission = await checkPermission(Permission.MANAGE_CUSTOMERS);
     if (!hasPermission) {
-      return { success: false, error: "You don't have permission to create customers" };
+      return {
+        success: false,
+        error: "You don't have permission to create customers",
+      };
     }
 
     // Validate input data
@@ -171,7 +239,10 @@ export async function updateCustomer(
     // Check if user has permission to manage customers
     const hasPermission = await checkPermission(Permission.MANAGE_CUSTOMERS);
     if (!hasPermission) {
-      return { success: false, error: "You don't have permission to update customers" };
+      return {
+        success: false,
+        error: "You don't have permission to update customers",
+      };
     }
 
     // Validate input data
@@ -230,7 +301,10 @@ export async function deleteCustomer(customerId: string, tenantId: string) {
     // Check if user has permission to manage customers
     const hasPermission = await checkPermission(Permission.MANAGE_CUSTOMERS);
     if (!hasPermission) {
-      return { success: false, error: "You don't have permission to delete customers" };
+      return {
+        success: false,
+        error: "You don't have permission to delete customers",
+      };
     }
 
     // Check if customer exists and belongs to the tenant

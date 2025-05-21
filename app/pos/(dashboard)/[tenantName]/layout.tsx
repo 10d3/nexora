@@ -51,19 +51,20 @@ export default async function PosLayout({
   params: { tenantName: string };
   children: ReactNode;
 }) {
+
   try {
     const paramsName = await params;
     const tenantName = paramsName.tenantName;
-    console.log("params is : ", tenantName);
+    // console.log("params is : ", tenantName);
     // Get the current user session
-    console.log("Checking session in POS layout");
+    // console.log("Checking session in POS layout");
     const session = await auth();
     if (!session?.user) {
       console.log("No session found, redirecting to login");
       redirect("/sign-in");
     }
 
-    console.log("session is : ", session);
+    // console.log("session is : ", session);
 
     // Get all tenants, active tenant, and formatted tenant data
     const { allTenants, activeTenant, tenantsData } = await getCachingAllTenants(
@@ -72,9 +73,9 @@ export default async function PosLayout({
       session.user.id as string
     );
 
-    console.log("allTenants is : ", allTenants);
-    console.log("activeTenant is : ", activeTenant);
-    console.log("tenantsData is : ", tenantsData);
+    // console.log("allTenants is : ", allTenants);
+    // console.log("activeTenant is : ", activeTenant);
+    // console.log("tenantsData is : ", tenantsData);
 
     // If no tenants found, redirect to create tenant page
     if (allTenants.length === 0) {

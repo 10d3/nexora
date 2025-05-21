@@ -52,7 +52,7 @@ export default async function middleware(req: NextRequest) {
   if (hostname == `pos.${process.env.NEXT_PUBLIC_ROOT_DOMAIN}`) {
     // Get the session
     const session = await getToken({ req, secret: process.env.AUTH_SECRET });
-    console.log("session from middleware", session);
+    // console.log("session from middleware", session);
 
     if (!session && path !== "/sign-in" && path !== "/sign-up") {
       return NextResponse.redirect(new URL("/sign-in", req.url));
@@ -69,7 +69,7 @@ export default async function middleware(req: NextRequest) {
   if (hostname == `marketing.${process.env.NEXT_PUBLIC_ROOT_DOMAIN}`) {
     // Get the session
     const session = await getToken({ req, secret: process.env.AUTH_SECRET });
-    console.log("session from middleware", session);
+    // console.log("session from middleware", session);
 
     if (!session && path !== "/sign-in" && path !== "/sign-up") {
       return NextResponse.redirect(new URL("/sign-in", req.url));
