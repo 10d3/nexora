@@ -10,11 +10,12 @@ import {
 import { toast } from "sonner";
 import { useResource } from "@/context/resource-provider";
 import { useDashboard } from "@/context/dashboard-provider";
+import db from "@/lib/services/db.service";
 
 export function useResourceMutation() {
   const { tenantId, businessType } = useDashboard();
   const queryClient = useQueryClient();
-  const { updateLocalResource, addLocalResource, removeLocalResource } =
+  const { updateLocalResource, addLocalResource, removeLocalResource, isOffline } =
     useResource();
 
   // Validation function based on business type
@@ -123,13 +124,36 @@ export function useResourceMutation() {
         throw new Error(validation.error || "Validation failed");
       }
 
-      // Log the data being sent
-      console.log("Creating resource:", {
-        businessType,
-        tenantId,
-        resourceData: validation.data || resourceData,
-      });
+      // If offline, save to IndexedDB and return a temporary success response
+      if (isOffline) {
+        const tempId = `temp-${Date.now()}`;
+        const tempResource = {
+          ...validation.data,
+          id: tempId,
+          tenantId,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
 
+        await db.saveResource(tempResource);
+
+        // Queue for later sync
+        await db.saveQueuedAction({
+          id: crypto.randomUUID(),
+          name: "create_resource",
+          params: {
+            data: validation.data,
+            tenantId,
+            businessType
+          },
+          timestamp: new Date(),
+          retries: 0
+        });
+
+        return { success: true, data: tempResource };
+      }
+
+      // If online, use the regular API
       return createResource(
         businessType,
         validation.data || resourceData,
@@ -150,6 +174,9 @@ export function useResourceMutation() {
       const tempResource = {
         ...newResource,
         id: `temp-${Date.now()}`,
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
       };
 
       addLocalResource(tempResource);
@@ -181,11 +208,26 @@ export function useResourceMutation() {
               );
             }
           );
+
+          // Also update in IndexedDB if we got a server response
+          if (!isOffline) {
+            db.saveResource({
+              ...result.data,
+              tenantId,
+            }).catch((error: Error) => 
+              console.error("Error saving resource to IndexedDB:", error)
+            );
+          }
         }
-        toast.success("Resource created successfully");
+
+        toast.success("Resource created", {
+          description: isOffline
+            ? "The resource has been saved locally and will sync when you're back online."
+            : "The resource has been successfully created.",
+        });
       } else {
         toast.error("Error", {
-          description: result.error || "Failed to create resource",
+          description: "Failed to create resource",
         });
       }
     },
@@ -198,10 +240,39 @@ export function useResourceMutation() {
 
   const updateMutation = useMutation({
     mutationFn: async (resourceData: any) => {
-      if (!validateResourceData(resourceData)) {
-        throw new Error("Validation failed");
+      const validation = validateResourceData(resourceData);
+      if (!validation.isValid) {
+        throw new Error(validation.error || "Validation failed");
       }
-      return updateResource(businessType, resourceData, tenantId as string);
+
+      // If offline, update in IndexedDB and return a temporary success response
+      if (isOffline) {
+        const updatedResource = {
+          ...validation.data,
+          tenantId,
+          updatedAt: new Date()
+        };
+
+        await db.saveResource(updatedResource);
+
+        // Queue for later sync
+        await db.saveQueuedAction({
+          id: crypto.randomUUID(),
+          name: "update_resource",
+          params: {
+            data: validation.data,
+            tenantId,
+            businessType
+          },
+          timestamp: new Date(),
+          retries: 0
+        });
+
+        return { success: true, data: updatedResource };
+      }
+
+      // If online, use the regular API
+      return updateResource(businessType, validation.data, tenantId as string);
     },
     onMutate: async (updatedResource) => {
       await queryClient.cancelQueries({
@@ -236,10 +307,24 @@ export function useResourceMutation() {
     },
     onSuccess: (result) => {
       if (result.success) {
-        toast.success("Resource updated successfully");
+        toast.success("Resource updated", {
+          description: isOffline
+            ? "The resource has been updated locally and will sync when you're back online."
+            : "The resource has been successfully updated.",
+        });
+
+        // Also update in IndexedDB if we got a server response
+        if (!isOffline && result.data) {
+          db.saveResource({
+            ...result.data,
+            tenantId,
+          }).catch((error: Error) => 
+            console.error("Error updating resource in IndexedDB:", error)
+          );
+        }
       } else {
         toast.error("Error", {
-          description: result.error || "Failed to update resource",
+          description: "Failed to update resource",
         });
       }
     },
@@ -252,6 +337,30 @@ export function useResourceMutation() {
 
   const deleteMutation = useMutation({
     mutationFn: async (resourceId: string) => {
+      // If offline, queue the delete and return a temporary success response
+      if (isOffline) {
+        // Get the resource first to preserve it in the delete queue
+        const resource = await db.getResource(resourceId);
+
+        if (resource) {
+          // Queue for later sync
+          await db.saveQueuedAction({
+            id: crypto.randomUUID(),
+            name: "delete_resource",
+            params: {
+              resourceId,
+              tenantId,
+              businessType
+            },
+            timestamp: new Date(),
+            retries: 0
+          });
+        }
+
+        return { success: true };
+      }
+
+      // If online, use the regular API
       return deleteResource(businessType, resourceId, tenantId as string);
     },
     onMutate: async (resourceId) => {
@@ -287,10 +396,14 @@ export function useResourceMutation() {
     },
     onSuccess: (result) => {
       if (result.success) {
-        toast.success("Resource deleted successfully");
+        toast.success("Resource deleted", {
+          description: isOffline
+            ? "The resource has been marked for deletion and will be removed when you're back online."
+            : "The resource has been successfully deleted.",
+        });
       } else {
         toast.error("Error", {
-          description: result.error || "Failed to delete resource",
+          description: "Failed to delete resource",
         });
       }
     },
@@ -305,6 +418,9 @@ export function useResourceMutation() {
     createResource: createMutation.mutate,
     updateResource: updateMutation.mutate,
     deleteResource: deleteMutation.mutate,
+    isCreating: createMutation.isPending,
+    isUpdating: updateMutation.isPending,
+    isDeleting: deleteMutation.isPending,
     isPending:
       createMutation.isPending ||
       updateMutation.isPending ||

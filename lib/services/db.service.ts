@@ -41,24 +41,26 @@ export interface ICustomerProfile {
   id?: string;
   firstName: string;
   lastName: string;
-  email?: string;
-  phone?: string;
-  address?: string;
-  dateOfBirth?: Date;
-  gender?: string;
-  notes?: string;
-  totalSpent?: number;
-  lastVisit?: Date;
-  loyaltyPoints?: number;
-  customerSince?: Date;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  dateOfBirth?: Date | null;
+  gender?: string | null;
+  notes?: string | null;
+  totalSpent?: number | null;
+  lastVisit?: Date | null;
+  loyaltyPoints?: number | null;
+  customerSince?: Date | null;
   preferences?: any;
-  tags?: string;
-  userId?: string;
+  tags?: string | null;
+  userId?: string | null;
   tenantId: string;
-  createdById?: string;
-  creditAccountId?: string;
+  createdById?: string | null;
+  creditAccountId?: string | null;
   createdAt?: Date;
   updatedAt?: Date;
+  deletedAt?: Date | null;
+  [key: string]: any; // Add index signature to allow dynamic property access
 }
 
 export interface IProject {
@@ -240,6 +242,41 @@ export interface ISettings {
   updatedAt?: Date;
 }
 
+export interface IResource {
+  id?: string;
+  name: string;
+  type: string;
+  capacity?: number | null;
+  description?: string | null;
+  tenantId: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+  deletedAt?: Date;
+  status?: string | null;
+  roomType?: string | null;
+  rate?: number | null;
+  specialization?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  condition?: string | null;
+}
+
+export interface IReservation {
+  id: string;
+  customerName: string;
+  customerPhone: string | null;
+  customerEmail: string | null;
+  specialRequests: string | null;
+  status: string;
+  partySize: number;
+  reservationTime: Date;
+  endTime: Date | null;
+  tableId: string | null;
+  tenantId: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 // Define the database class
 class NexoraDatabase extends Dexie {
   users: Dexie.Table<IUser, string>;
@@ -259,6 +296,8 @@ class NexoraDatabase extends Dexie {
   subscriptionPlans: Dexie.Table<ISubscriptionPlan, string>;
   userSubscriptions: Dexie.Table<IUserSubscription, string>;
   settings: Dexie.Table<ISettings, string>;
+  resources: Dexie.Table<IResource, string>;
+  reservations: Dexie.Table<IReservation, string>;
 
   constructor() {
     super("NexoraDB");
@@ -284,6 +323,8 @@ class NexoraDatabase extends Dexie {
       subscriptionPlans: "id, isActive",
       userSubscriptions: "id, userId, planId, status",
       settings: "id, tenantId",
+      resources: "id, tenantId, type",
+      reservations: "id, tenantId, customerId, resourceId, startTime, status",
     });
 
     // Define table mappings
@@ -304,6 +345,8 @@ class NexoraDatabase extends Dexie {
     this.subscriptionPlans = this.table("subscriptionPlans");
     this.userSubscriptions = this.table("userSubscriptions");
     this.settings = this.table("settings");
+    this.resources = this.table("resources");
+    this.reservations = this.table("reservations");
   }
 
   // Helper methods for CRUD operations with offline support
@@ -544,6 +587,32 @@ class NexoraDatabase extends Dexie {
     return this.settings.put(settings);
   }
 
+  // Resource methods
+  async getResource(id: string): Promise<IResource | undefined> {
+    return this.resources.get(id);
+  }
+
+  async getResourcesByTenant(tenantId: string): Promise<IResource[]> {
+    return this.resources.where("tenantId").equals(tenantId).toArray();
+  }
+
+  async saveResource(resource: IResource): Promise<string> {
+    return this.resources.put(resource);
+  }
+
+  // Reservation methods
+  async getReservation(id: string): Promise<IReservation | undefined> {
+    return this.reservations.get(id);
+  }
+
+  async getReservationsByTenant(tenantId: string): Promise<IReservation[]> {
+    return this.reservations.where("tenantId").equals(tenantId).toArray();
+  }
+
+  async saveReservation(reservation: IReservation): Promise<string> {
+    return this.reservations.put(reservation);
+  }
+
   // Sync methods for offline-first functionality
   async syncFromServer(data: any): Promise<void> {
     // Transaction to ensure data consistency
@@ -567,6 +636,8 @@ class NexoraDatabase extends Dexie {
         this.subscriptionPlans,
         this.userSubscriptions,
         this.settings,
+        this.resources,
+        this.reservations,
       ],
       async () => {
         // Sync each table with server data
@@ -665,6 +736,18 @@ class NexoraDatabase extends Dexie {
             await this.settings.put(setting);
           }
         }
+
+        if (data.resources) {
+          for (const resource of data.resources) {
+            await this.resources.put(resource);
+          }
+        }
+
+        if (data.reservations) {
+          for (const reservation of data.reservations) {
+            await this.reservations.put(reservation);
+          }
+        }
       }
     );
   }
@@ -713,6 +796,8 @@ class NexoraDatabase extends Dexie {
         this.subscriptionPlans,
         this.userSubscriptions,
         this.settings,
+        this.resources,
+        this.reservations,
       ],
       async () => {
         await Promise.all([
@@ -733,6 +818,8 @@ class NexoraDatabase extends Dexie {
           this.subscriptionPlans.clear(),
           this.userSubscriptions.clear(),
           this.settings.clear(),
+          this.resources.clear(),
+          this.reservations.clear(),
         ]);
       }
     );

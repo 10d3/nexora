@@ -8,14 +8,68 @@ import {
 } from "@/lib/actions/reservation-actions";
 import { toast } from "sonner";
 import { useReservation } from "@/context/reservation-provider";
+import db, { IReservation } from "@/lib/services/db.service";
+
+interface ReservationResult {
+  success: boolean;
+  data?: IReservation;
+  error?: string;
+}
 
 export function useReservationMutation(businessType: string, tenantId: string) {
   const queryClient = useQueryClient();
-  const { updateLocalReservation, addLocalReservation } = useReservation();
+  const { updateLocalReservation, addLocalReservation, isOffline } = useReservation();
 
   const createMutation = useMutation({
-    mutationFn: async (reservationData: any) => {
-      return createReservation(businessType, reservationData, tenantId);
+    mutationFn: async (reservationData: any): Promise<ReservationResult> => {
+      // If offline, save to IndexedDB and return a temporary success response
+      if (isOffline) {
+        const tempId = `temp-${Date.now()}`;
+        const tempReservation: IReservation = {
+          ...reservationData,
+          id: tempId,
+          partySize: reservationData.size,
+          reservationTime: new Date(reservationData.startTime),
+          endTime: reservationData.endTime ? new Date(reservationData.endTime) : null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          tenantId
+        };
+        
+        await db.saveReservation(tempReservation);
+        
+        // Queue for later sync
+        await db.saveQueuedAction({
+          id: crypto.randomUUID(),
+          name: "create_reservation",
+          params: {
+            data: reservationData,
+            tenantId,
+            businessType
+          },
+          timestamp: new Date(),
+          retries: 0
+        });
+        
+        return { success: true, data: tempReservation };
+      }
+      
+      // If online, use the regular API
+      const result = await createReservation(businessType, reservationData, tenantId);
+      if (result.success && result.data) {
+        // Convert API response to IReservation format
+        const reservation: IReservation = {
+          ...result.data,
+          partySize: result.data.partySize,
+          reservationTime: new Date(result.data.reservationTime),
+          endTime: result.data.endTime ? new Date(result.data.endTime) : null,
+          createdAt: new Date(result.data.createdAt),
+          updatedAt: new Date(result.data.updatedAt),
+          tenantId
+        };
+        return { success: true, data: reservation };
+      }
+      return result;
     },
     onMutate: async (newReservation) => {
       // Cancel any outgoing refetches
@@ -34,8 +88,11 @@ export function useReservationMutation(businessType: string, tenantId: string) {
       const tempReservation = {
         ...newReservation,
         id: `temp-${Date.now()}`,
-        startTime: new Date(newReservation.startTime),
-        endTime: new Date(newReservation.endTime),
+        partySize: newReservation.size,
+        reservationTime: new Date(newReservation.startTime),
+        endTime: newReservation.endTime ? new Date(newReservation.endTime) : null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       };
 
       // Add to local state for immediate UI update
@@ -70,10 +127,19 @@ export function useReservationMutation(businessType: string, tenantId: string) {
               );
             }
           );
+          
+          // Also update in IndexedDB if we got a server response
+          if (!isOffline) {
+            db.saveReservation(result.data).catch((error: Error) => 
+              console.error("Error saving reservation to IndexedDB:", error)
+            );
+          }
         }
 
         toast.success("Reservation created", {
-          description: "The reservation has been successfully created.",
+          description: isOffline
+            ? "The reservation has been saved locally and will sync when you're back online."
+            : "The reservation has been successfully created.",
         });
       } else {
         toast.error("Error", {
@@ -90,8 +156,52 @@ export function useReservationMutation(businessType: string, tenantId: string) {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async (reservationData: any) => {
-      return updateReservation(businessType, reservationData, tenantId);
+    mutationFn: async (reservationData: any): Promise<ReservationResult> => {
+      // If offline, update in IndexedDB and return a temporary success response
+      if (isOffline) {
+        const updatedReservation: IReservation = {
+          ...reservationData,
+          partySize: reservationData.size,
+          reservationTime: new Date(reservationData.startTime),
+          endTime: reservationData.endTime ? new Date(reservationData.endTime) : null,
+          updatedAt: new Date(),
+          tenantId
+        };
+        
+        await db.saveReservation(updatedReservation);
+        
+        // Queue for later sync
+        await db.saveQueuedAction({
+          id: crypto.randomUUID(),
+          name: "update_reservation",
+          params: {
+            data: reservationData,
+            tenantId,
+            businessType
+          },
+          timestamp: new Date(),
+          retries: 0
+        });
+        
+        return { success: true, data: updatedReservation };
+      }
+      
+      // If online, use the regular API
+      const result = await updateReservation(businessType, reservationData, tenantId);
+      if (result.success && result.data) {
+        // Convert API response to IReservation format
+        const reservation: IReservation = {
+          ...result.data,
+          partySize: result.data.partySize,
+          reservationTime: new Date(result.data.reservationTime),
+          endTime: result.data.endTime ? new Date(result.data.endTime) : null,
+          createdAt: new Date(result.data.createdAt),
+          updatedAt: new Date(result.data.updatedAt),
+          tenantId
+        };
+        return { success: true, data: reservation };
+      }
+      return result;
     },
     onMutate: async (updatedReservation) => {
       // Cancel any outgoing refetches
@@ -109,8 +219,11 @@ export function useReservationMutation(businessType: string, tenantId: string) {
       // Format dates for UI consistency
       const formattedReservation = {
         ...updatedReservation,
-        startTime: new Date(updatedReservation.startTime),
-        endTime: new Date(updatedReservation.endTime),
+        partySize: updatedReservation.size,
+        reservationTime: new Date(updatedReservation.startTime),
+        endTime: updatedReservation.endTime ? new Date(updatedReservation.endTime) : null,
+        updatedAt: new Date(),
+        tenantId: updatedReservation.tenantId
       };
 
       // Update local state for immediate UI update
@@ -133,8 +246,17 @@ export function useReservationMutation(businessType: string, tenantId: string) {
     onSuccess: (result) => {
       if (result.success) {
         toast.success("Reservation updated", {
-          description: "The reservation has been successfully updated.",
+          description: isOffline
+            ? "The reservation has been updated locally and will sync when you're back online."
+            : "The reservation has been successfully updated.",
         });
+        
+        // Also update in IndexedDB if we got a server response
+        if (!isOffline && result.data) {
+          db.saveReservation(result.data).catch((error: Error) => 
+            console.error("Error updating reservation in IndexedDB:", error)
+          );
+        }
       } else {
         toast.error("Error", {
           description: result.error || "Failed to update reservation.",

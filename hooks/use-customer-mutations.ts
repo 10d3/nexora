@@ -9,13 +9,47 @@ import {
 } from "@/lib/actions/customer.actions";
 import { toast } from "sonner";
 import { useCustomer } from "@/context/customer-provider";
+import db from "@/lib/services/db.service";
 
 export function useCustomerMutation(tenantId: string) {
   const queryClient = useQueryClient();
-  const { updateLocalCustomer, addLocalCustomer, removeLocalCustomer } = useCustomer();
+  const {
+    updateLocalCustomer,
+    addLocalCustomer,
+    removeLocalCustomer,
+    isOffline,
+  } = useCustomer();
 
   const createMutation = useMutation({
     mutationFn: async (customerData: any) => {
+      // If offline, save to IndexedDB and return a temporary success response
+      if (isOffline) {
+        const tempId = `temp-${Date.now()}`;
+        const tempCustomer = {
+          ...customerData,
+          id: tempId,
+          customerSince: new Date(),
+          tenantId,
+        };
+
+        await db.saveCustomerProfile(tempCustomer);
+
+        // Queue for later sync
+        await db.saveQueuedAction({
+          id: crypto.randomUUID(),
+          name: "create_customer",
+          params: {
+            data: customerData,
+            tenantId,
+          },
+          timestamp: new Date(),
+          retries: 0,
+        });
+
+        return { success: true, data: tempCustomer };
+      }
+
+      // If online, use the regular API
       return createCustomer(customerData, tenantId);
     },
     onMutate: async (newCustomer) => {
@@ -66,20 +100,32 @@ export function useCustomerMutation(tenantId: string) {
                 ...old,
                 data: old.data.map((customer: any) =>
                   customer.id === context.tempCustomer.id
-                    ? result.data
+                    ? { ...result.data }
                     : customer
                 ),
               };
             }
           );
+
+          // Also update in IndexedDB if we got a server response
+          if (!isOffline) {
+            db.saveCustomerProfile({
+              ...result.data,
+              tenantId,
+            }).catch((err) =>
+              console.error("Error saving customer to IndexedDB:", err)
+            );
+          }
         }
 
         toast.success("Customer created", {
-          description: "The customer has been successfully created.",
+          description: isOffline
+            ? "The customer has been saved locally and will sync when you're back online."
+            : "The customer has been successfully created.",
         });
       } else {
         toast.error("Error", {
-          description: result.error || "Failed to create customer.",
+          description: result.data.error || "Failed to create customer.",
         });
       }
     },
@@ -93,6 +139,29 @@ export function useCustomerMutation(tenantId: string) {
 
   const updateMutation = useMutation({
     mutationFn: async (customerData: any) => {
+      // If offline, update in IndexedDB and return a temporary success response
+      if (isOffline) {
+        await db.saveCustomerProfile({
+          ...customerData,
+          tenantId,
+        });
+
+        // Queue for later sync
+        await db.saveQueuedAction({
+          id: crypto.randomUUID(),
+          name: "update_customer",
+          params: {
+            data: customerData,
+            tenantId,
+          },
+          timestamp: new Date(),
+          retries: 0,
+        });
+
+        return { success: true, data: customerData };
+      }
+
+      // If online, use the regular API
       return updateCustomer(customerData, tenantId);
     },
     onMutate: async (updatedCustomer) => {
@@ -127,11 +196,23 @@ export function useCustomerMutation(tenantId: string) {
     onSuccess: (result) => {
       if (result.success) {
         toast.success("Customer updated", {
-          description: "The customer has been successfully updated.",
+          description: isOffline
+            ? "The customer has been updated locally and will sync when you're back online."
+            : "The customer has been successfully updated.",
         });
+
+        // Also update in IndexedDB if we got a server response
+        if (!isOffline && result.data) {
+          db.saveCustomerProfile({
+            ...result.data,
+            tenantId,
+          }).catch((err) =>
+            console.error("Error updating customer in IndexedDB:", err)
+          );
+        }
       } else {
         toast.error("Error", {
-          description: result.error || "Failed to update customer.",
+          description: result.data.error || "Failed to update customer.",
         });
       }
     },
@@ -145,6 +226,36 @@ export function useCustomerMutation(tenantId: string) {
 
   const deleteMutation = useMutation({
     mutationFn: async (customerId: string) => {
+      // If offline, queue the delete and return a temporary success response
+      if (isOffline) {
+        // Get the customer first to preserve it in the delete queue
+        const customer = await db.getCustomerProfile(customerId);
+
+        if (customer) {
+          // Mark as deleted in IndexedDB
+          await db.saveCustomerProfile({
+            ...customer,
+            deletedAt: new Date(),
+            tenantId,
+          });
+
+          // Queue for later sync
+          await db.saveQueuedAction({
+            id: crypto.randomUUID(),
+            name: "delete_customer",
+            params: {
+              customerId,
+              tenantId,
+            },
+            timestamp: new Date(),
+            retries: 0,
+          });
+        }
+
+        return { success: true };
+      }
+
+      // If online, use the regular API
       return deleteCustomer(customerId, tenantId);
     },
     onMutate: async (customerId) => {
@@ -179,11 +290,13 @@ export function useCustomerMutation(tenantId: string) {
     onSuccess: (result) => {
       if (result.success) {
         toast.success("Customer deleted", {
-          description: "The customer has been successfully deleted.",
+          description: isOffline
+            ? "The customer has been marked for deletion and will be removed when you're back online."
+            : "The customer has been successfully deleted.",
         });
       } else {
         toast.error("Error", {
-          description: result.error || "Failed to delete customer.",
+          description: result.success || "Failed to delete customer.",
         });
       }
     },
@@ -202,6 +315,9 @@ export function useCustomerMutation(tenantId: string) {
     isCreating: createMutation.isPending,
     isUpdating: updateMutation.isPending,
     isDeleting: deleteMutation.isPending,
-    isPending: createMutation.isPending || updateMutation.isPending || deleteMutation.isPending,
+    isPending:
+      createMutation.isPending ||
+      updateMutation.isPending ||
+      deleteMutation.isPending,
   };
 }
