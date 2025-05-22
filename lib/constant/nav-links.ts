@@ -281,7 +281,7 @@ const businessSpecificNavLinks: Record<BusinessType, NavItem[]> = {
     },
     {
       title: "Menu Items",
-      url: "/menu-items",
+      url: "/menu",
       icon: ListOrdered,
       hasSubmenu: false,
     },

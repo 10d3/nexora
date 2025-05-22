@@ -21,6 +21,7 @@ export const metadata: Metadata = {
   keywords: layoutMetadata.keywords,
   creator: layoutMetadata.author,
   publisher: layoutMetadata.author,
+  // manifest: "/web.manifest",
   // colorScheme: "light dark",
 };
 
