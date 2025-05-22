@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-// import { useOrder } from "@/context/order-provider";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import {
   Dialog,
   DialogContent,
@@ -11,7 +13,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -20,23 +21,96 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { format } from "date-fns";
-import { CalendarIcon, Clock, Plus, X } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { useOrders } from "@/context/order-provider";
 import { useCustomer } from "@/context/customer-provider";
 import { useMenu } from "@/context/menu-provider";
 import { useReservation } from "@/context/reservation-provider";
-import { OrderStatus, PaymentType } from "@prisma/client";
+import { OrderStatus, PaymentType, OrderType } from "@prisma/client";
+import { useOrderMutation } from "@/hooks/use-order-mutations";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 
-// Import Order type from order provider
-type Order = {
+const BusinessType = {
+  RESTAURANT: "RESTAURANT",
+  HOTEL: "HOTEL",
+  SALON: "SALON",
+  RETAIL: "RETAIL",
+  PHARMACY: "PHARMACY",
+  SUPERMARKET: "SUPERMARKET",
+} as const;
+
+type BusinessType = (typeof BusinessType)[keyof typeof BusinessType];
+
+// Form schema
+const formSchema = z.object({
+  id: z.string(),
+  businessType: z.enum([
+    BusinessType.RESTAURANT,
+    BusinessType.HOTEL,
+    BusinessType.SALON,
+    BusinessType.RETAIL,
+    BusinessType.PHARMACY,
+    BusinessType.SUPERMARKET,
+  ]),
+  customerId: z.string().min(1, "Customer is required"),
+  tableId: z.string().optional(),
+  reservationId: z.string().optional(),
+  roomId: z.string().optional(),
+  bookingId: z.string().optional(),
+  appointmentId: z.string().optional(),
+  specialInstructions: z.string().optional(),
+  status: z.nativeEnum(OrderStatus),
+  paymentType: z.nativeEnum(PaymentType),
+  orderType: z.nativeEnum(OrderType),
+  items: z
+    .array(
+      z.object({
+        id: z.string(),
+        productId: z.string(),
+        name: z.string(),
+        quantity: z.number().min(1),
+        price: z.number().min(0),
+        total: z.number().min(0),
+      })
+    )
+    .min(1, "At least one item is required"),
+});
+
+type FormData = z.infer<typeof formSchema>;
+
+type Reservation = {
+  id: string;
+  customerName: string;
+  reservationTime: Date;
+  status: string;
+  tableId?: string;
+};
+
+type OrderDialogProps = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  mode: "create" | "edit";
+  refreshData?: () => Promise<void>;
+};
+
+type Customer = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+};
+
+// Extended Order type to include business-specific fields
+interface ExtendedOrder {
   id: string;
   orderNumber: string;
   customer: {
@@ -63,142 +137,102 @@ type Order = {
   orderDate: Date;
   status: OrderStatus;
   paymentType: PaymentType;
-  shippingAddress: {
-    line1: string;
-    line2?: string;
-    city: string;
-    state: string;
-    postalCode: string;
-    country: string;
-  };
-  billingAddress: {
-    line1: string;
-    line2?: string;
-    city: string;
-    state: string;
-    postalCode: string;
-    country: string;
-  };
   notes?: string;
-  trackingNumber?: string;
-  timeline?: {
-    status: string;
-    timestamp: Date;
-    note?: string;
-  }[];
-};
-
-// Add reservation type
-type Reservation = {
-  id: string;
-  customerName: string;
-  reservationTime: Date;
-  status: string;
   tableId?: string;
-};
+  reservationId?: string;
+  roomId?: string;
+  bookingId?: string;
+  appointmentId?: string;
+  orderType?: OrderType;
+}
 
-type OrderDialogProps = {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  mode: "create" | "edit";
-  refreshData?: () => Promise<void>;
-};
-
-type OrderItem = {
-  id: string;
-  productId: string;
-  name: string;
-  quantity: number;
-  price: number;
-  total: number;
-};
-
-type Customer = {
-  id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone?: string;
-};
-
-// Extended Order type that includes tableId
-type ExtendedOrder = Order & {
-  tableId?: string;
-};
-
-export function OrderDialog({
-  open,
-  onOpenChange,
-  mode,
-}: OrderDialogProps) {
-  const { selectedOrder, createNewOrder, updateStatus, isPending } = useOrders();
+export function OrderDialog({ open, onOpenChange, mode }: OrderDialogProps) {
+  const { selectedOrder } = useOrders();
+  const { createNewOrder, updateStatus, isPending } = useOrderMutation();
   const { customers } = useCustomer();
   const { menuItems } = useMenu();
   const { reservations } = useReservation();
-  
-  const [formData, setFormData] = useState({
-    id: "",
-    customerId: "",
-    orderDate: new Date(),
-    orderTime: "12:00",
-    reservationId: "",
-    specialInstructions: "",
-    status: "PENDING" as OrderStatus,
-    paymentType: "CASH" as PaymentType,
-    items: [] as OrderItem[],
+
+  const form = useForm<FormData>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      id: crypto.randomUUID(),
+      businessType: BusinessType.RESTAURANT,
+      customerId: "",
+      tableId: "",
+      reservationId: "",
+      roomId: "",
+      bookingId: "",
+      appointmentId: "",
+      specialInstructions: "",
+      status: OrderStatus.PENDING,
+      paymentType: PaymentType.CASH,
+      orderType: OrderType.STANDARD,
+      items: [],
+    },
   });
 
   const [selectedProduct, setSelectedProduct] = useState("");
   const [quantity, setQuantity] = useState(1);
 
+  // Add debugging
+  console.log("Form errors:", form.formState.errors);
+  console.log("Form values:", form.getValues());
+  console.log("Form isValid:", form.formState.isValid);
+
   // Reset form when dialog opens/closes or mode changes
   useEffect(() => {
     if (open && mode === "edit" && selectedOrder) {
-      // Format the date and time for the form
-      const orderDate = new Date(selectedOrder.orderDate);
-      const orderHours = orderDate.getHours().toString().padStart(2, "0");
-      const orderMinutes = orderDate.getMinutes().toString().padStart(2, "0");
-      const orderTime = `${orderHours}:${orderMinutes}`;
+      const extendedOrder = selectedOrder as unknown as ExtendedOrder;
 
-      const extendedOrder = selectedOrder as ExtendedOrder;
+      // Determine business type based on the presence of business-specific fields
+      let businessType: BusinessType = BusinessType.RESTAURANT;
+      if (extendedOrder.roomId || extendedOrder.bookingId) {
+        businessType = BusinessType.HOTEL;
+      } else if (extendedOrder.appointmentId) {
+        businessType = BusinessType.SALON;
+      }
 
-      setFormData({
-        id: selectedOrder.id,
-        customerId: selectedOrder.customer.id,
-        orderDate: orderDate,
-        orderTime: orderTime,
-        reservationId: extendedOrder.tableId || "",
-        specialInstructions: selectedOrder.notes || "",
-        status: selectedOrder.status,
-        paymentType: selectedOrder.paymentType,
-        items: selectedOrder.items,
+      form.reset({
+        id: extendedOrder.id,
+        businessType,
+        customerId: extendedOrder.customer.id,
+        tableId: extendedOrder.tableId || "",
+        reservationId: extendedOrder.reservationId || "",
+        roomId: extendedOrder.roomId || "",
+        bookingId: extendedOrder.bookingId || "",
+        appointmentId: extendedOrder.appointmentId || "",
+        specialInstructions: extendedOrder.notes || "",
+        status: extendedOrder.status,
+        paymentType: extendedOrder.paymentType,
+        orderType: extendedOrder.orderType || OrderType.STANDARD,
+        items: extendedOrder.items.map((item) => ({
+          id: item.id,
+          productId: item.productId,
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+          total: item.total,
+        })),
       });
     } else {
-      // Reset form for create mode
-      setFormData({
-        id: "",
+      form.reset({
+        id: crypto.randomUUID(),
+        businessType: BusinessType.RESTAURANT,
         customerId: "",
-        orderDate: new Date(),
-        orderTime: "12:00",
+        tableId: "",
         reservationId: "",
+        roomId: "",
+        bookingId: "",
+        appointmentId: "",
         specialInstructions: "",
-        status: "PENDING" as OrderStatus,
-        paymentType: "CASH" as PaymentType,
+        status: OrderStatus.PENDING,
+        paymentType: PaymentType.CASH,
+        orderType: OrderType.STANDARD,
         items: [],
       });
     }
-  }, [open, mode, selectedOrder]);
-
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleSelectChange = (name: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
+  }, [open, mode, selectedOrder, form]);
 
   const handleAddItem = () => {
     if (!selectedProduct) return;
@@ -206,7 +240,7 @@ export function OrderDialog({
     const product = menuItems.find((item) => item.id === selectedProduct);
     if (!product) return;
 
-    const newItem: OrderItem = {
+    const newItem = {
       id: `temp-${Date.now()}`,
       productId: product.id,
       name: product.name,
@@ -215,10 +249,11 @@ export function OrderDialog({
       total: product.price * quantity,
     };
 
-    setFormData((prev) => ({
-      ...prev,
-      items: [...prev.items, newItem],
-    }));
+    const currentItems = form.getValues("items");
+    form.setValue("items", [...currentItems, newItem]);
+
+    // Trigger validation for items field
+    form.trigger("items");
 
     // Reset selection
     setSelectedProduct("");
@@ -226,66 +261,96 @@ export function OrderDialog({
   };
 
   const handleRemoveItem = (itemId: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      items: prev.items.filter((item) => item.id !== itemId),
-    }));
+    const currentItems = form.getValues("items");
+    form.setValue(
+      "items",
+      currentItems.filter((item) => item.id !== itemId)
+    );
+    // Trigger validation for items field
+    form.trigger("items");
   };
 
-  // Filter confirmed reservations
-  const confirmedReservations = reservations.filter(
-    (reservation: Reservation) => reservation.status === "CONFIRMED"
-  );
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const onSubmit = async (data: FormData) => {
+    console.log("✅ Form submitted with data:", data);
 
     try {
-      // Combine date and time
-      const orderDateTime = new Date(formData.orderDate);
-      const [orderHours, orderMinutes] = formData.orderTime
-        .split(":")
-        .map(Number);
-      orderDateTime.setHours(orderHours, orderMinutes, 0);
-
-      // Get selected reservation
-      const selectedReservation = confirmedReservations.find((r: Reservation) => r.id === formData.reservationId);
-      if (!selectedReservation) {
-        toast.error("Error", {
-          description: "Please select a confirmed reservation",
-        });
-        return;
-      }
-
       // Calculate totals
-      const subtotal = formData.items.reduce((sum, item) => sum + item.total, 0);
-      const tax = subtotal * 0.1; // 10% tax rate, adjust as needed
+      const subtotal = data.items.reduce(
+        (sum: number, item: { total: number }) => sum + item.total,
+        0
+      );
+      const tax = subtotal * 0.1; // 10% tax rate
       const total = subtotal + tax;
 
-      // Prepare data for API
+      // Determine business type based on the presence of business-specific fields
+      let businessType: BusinessType = BusinessType.RESTAURANT;
+      if (data.roomId || data.bookingId) {
+        businessType = BusinessType.HOTEL;
+      } else if (data.appointmentId) {
+        businessType = BusinessType.SALON;
+      }
+
       const orderData = {
-        id: mode === "edit" ? formData.id : undefined,
-        customerId: formData.customerId,
-        reservationId: formData.reservationId,
-        items: formData.items,
+        id: mode === "edit" ? data.id : undefined,
+        customerId: data.customerId,
+        businessType,
+        items: data.items.map((item) => ({
+          productId: item.productId,
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+          total: item.total,
+        })),
         subtotal,
         tax,
         shipping: 0,
         discount: 0,
         total,
-        status: formData.status,
-        paymentType: formData.paymentType,
-        notes: formData.specialInstructions || "",
+        status: data.status,
+        paymentType: data.paymentType,
+        orderType: data.orderType,
+        notes: data.specialInstructions || "",
+
+        // Business specific fields
+        tableId: data.tableId || undefined,
+        reservationId: data.reservationId || undefined,
+        roomId: data.roomId || undefined,
+        bookingId: data.bookingId || undefined,
+        appointmentId: data.appointmentId || undefined,
       };
 
-      // Close the dialog immediately for better UX (optimistic update)
-      onOpenChange(false);
+      console.log("Sending order data:", orderData);
 
-      // Use the mutation functions
       if (mode === "create") {
-        await createNewOrder(orderData);
+        console.log("Creating new order...");
+        const result = await createNewOrder(orderData);
+        console.log("Create order result:", result);
+
+        if (result.success) {
+          onOpenChange(false);
+          toast.success("Success", {
+            description: "Order created successfully",
+          });
+        } else {
+          toast.error("Error", {
+            description: result.error || "Failed to create order",
+          });
+        }
       } else {
-        await updateStatus(formData.id, formData.status);
+        console.log("Updating order...");
+        const result = await updateStatus(data.id, data.status);
+        console.log("Update order result:", result);
+
+        if (result.success) {
+          onOpenChange(false);
+          toast.success("Success", {
+            description: "Order updated successfully",
+          });
+        } else {
+          toast.error("Error", {
+            description: result.error || "Failed to update order",
+          });
+        }
       }
     } catch (error) {
       console.error("Error saving order:", error);
@@ -295,112 +360,203 @@ export function OrderDialog({
     }
   };
 
-  const statusOptions = [
-    "PENDING",
-    "PROCESSING",
-    "COMPLETED",
-    "CANCELLED",
-  ] as const;
-
-  const paymentTypeOptions: PaymentType[] = [
-    "CASH",
-    "CREDIT_CARD",
-    "DEBIT_CARD",
-    "MOBILE_PAYMENT",
-    "ONLINE_PAYMENT",
-  ];
+  // Add a test submit handler to debug
+  //   const handleTestSubmit = (e: React.FormEvent) => {
+  //     console.log("🔍 Form submit event triggered");
+  //     console.log("Form state:", {
+  //       isValid: form.formState.isValid,
+  //       errors: form.formState.errors,
+  //       values: form.getValues(),
+  //     });
+  //   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {mode === "create" ? "Create Order" : "Edit Order"}
           </DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit}>
-          <div className="grid gap-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="customerId">Customer *</Label>
-              <Select
-                value={formData.customerId}
-                onValueChange={(value) => handleSelectChange("customerId", value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select customer" />
-                </SelectTrigger>
-                <SelectContent>
-                  {customers.map((customer: Customer) => (
-                    <SelectItem key={customer.id} value={customer.id}>
-                      {customer.firstName} {customer.lastName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="reservationId">Reservation *</Label>
-              <Select
-                value={formData.reservationId}
-                onValueChange={(value) => handleSelectChange("reservationId", value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select reservation" />
-                </SelectTrigger>
-                <SelectContent>
-                  {confirmedReservations.map((reservation: Reservation) => (
-                    <SelectItem key={reservation.id} value={reservation.id}>
-                      {reservation.customerName} - {new Date(reservation.reservationTime).toLocaleString()}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Order Date *</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start text-left font-normal"
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {format(formData.orderDate, "PPP")}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar
-                    mode="single"
-                    selected={formData.orderDate}
-                    onSelect={(date) =>
-                      date &&
-                      setFormData((prev) => ({ ...prev, orderDate: date }))
-                    }
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="orderTime">Order Time *</Label>
-              <div className="flex items-center">
-                <Clock className="mr-2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="orderTime"
-                  name="orderTime"
-                  type="time"
-                  value={formData.orderTime}
-                  onChange={handleChange}
-                  required
+        <Form {...form}>
+          <form
+            onSubmit={(e) => {
+              //   handleTestSubmit(e);
+              form.handleSubmit(onSubmit)(e);
+            }}
+            className="space-y-6"
+          >
+            {/* Basic Information Section */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Basic Information</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="customerId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Customer *</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select customer" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {customers?.map((customer: Customer) => (
+                            <SelectItem key={customer.id} value={customer.id}>
+                              {customer.firstName} {customer.lastName}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
+
+                {/* Restaurant specific fields */}
+                {form.watch("businessType") === BusinessType.RESTAURANT && (
+                  <FormField
+                    control={form.control}
+                    name="reservationId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Reservation</FormLabel>
+                        <Select
+                          onValueChange={(value) => {
+                            field.onChange(value);
+                            // Set the table ID from the selected reservation
+                            const selectedReservation = reservations?.find(
+                              (res: Reservation) => res.id === value
+                            );
+                            if (selectedReservation?.tableId) {
+                              form.setValue(
+                                "tableId",
+                                selectedReservation.tableId
+                              );
+                            }
+                          }}
+                          value={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select reservation" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {reservations
+                              ?.filter(
+                                (reservation: Reservation) =>
+                                  reservation.status === "CONFIRMED"
+                              )
+                              .map((reservation: Reservation) => (
+                                <SelectItem
+                                  key={reservation.id}
+                                  value={reservation.id}
+                                >
+                                  {reservation.customerName} -{" "}
+                                  {new Date(
+                                    reservation.reservationTime
+                                  ).toLocaleString()}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+
+                {/* Hotel specific fields */}
+                {form.watch("businessType") === BusinessType.HOTEL && (
+                  <>
+                    <FormField
+                      control={form.control}
+                      name="roomId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Room</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            value={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select room" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {/* Add your rooms data here */}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="bookingId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Booking</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            value={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select booking" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {/* Add your bookings data here */}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </>
+                )}
+
+                {/* Salon specific fields */}
+                {form.watch("businessType") === BusinessType.SALON && (
+                  <FormField
+                    control={form.control}
+                    name="appointmentId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Appointment</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          value={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select appointment" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {/* Add your appointments data here */}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
               </div>
             </div>
 
+            {/* Order Items Section */}
             <div className="space-y-4">
-              <Label>Order Items</Label>
+              <h3 className="text-lg font-medium">Order Items *</h3>
               <div className="flex gap-2">
                 <Select
                   value={selectedProduct}
@@ -410,7 +566,7 @@ export function OrderDialog({
                     <SelectValue placeholder="Select menu item" />
                   </SelectTrigger>
                   <SelectContent>
-                    {menuItems.map((item) => (
+                    {menuItems?.map((item) => (
                       <SelectItem key={item.id} value={item.id}>
                         {item.name} - ${item.price}
                       </SelectItem>
@@ -433,8 +589,8 @@ export function OrderDialog({
                 </Button>
               </div>
 
-              <div className="space-y-2">
-                {formData.items.map((item) => (
+              <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                {form.watch("items").map((item) => (
                   <div
                     key={item.id}
                     className="flex items-center justify-between p-2 border rounded-md"
@@ -456,77 +612,124 @@ export function OrderDialog({
                   </div>
                 ))}
               </div>
+
+              {/* Show items validation error */}
+              {form.formState.errors.items && (
+                <p className="text-sm text-red-500">
+                  {form.formState.errors.items.message}
+                </p>
+              )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="status">Order Status</Label>
-                <Select
-                  value={formData.status}
-                  onValueChange={(value) => handleSelectChange("status", value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {statusOptions.map((status) => (
-                      <SelectItem key={status} value={status}>
-                        {status.replace(/_/g, " ")}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="paymentType">Payment Type</Label>
-                <Select
-                  value={formData.paymentType}
-                  onValueChange={(value) =>
-                    handleSelectChange("paymentType", value)
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select payment type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {paymentTypeOptions.map((type) => (
-                      <SelectItem key={type} value={type}>
-                        {type.replace(/_/g, " ")}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            {/* Payment and Status Section */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Payment & Status</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="status"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Order Status</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select status" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {[
+                            "PENDING",
+                            "PROCESSING",
+                            "COMPLETED",
+                            "CANCELLED",
+                          ].map((status) => (
+                            <SelectItem key={status} value={status}>
+                              {status.replace(/_/g, " ")}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="paymentType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Payment Type</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select payment type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {[
+                            "CASH",
+                            "CREDIT_CARD",
+                            "DEBIT_CARD",
+                            "MOBILE_PAYMENT",
+                            "ONLINE_PAYMENT",
+                          ].map((type) => (
+                            <SelectItem key={type} value={type}>
+                              {type.replace(/_/g, " ")}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="specialInstructions">Special Instructions</Label>
-              <Textarea
-                id="specialInstructions"
+            {/* Additional Information Section */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Additional Information</h3>
+              <FormField
+                control={form.control}
                 name="specialInstructions"
-                value={formData.specialInstructions}
-                onChange={handleChange}
-                rows={3}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Special Instructions</FormLabel>
+                    <FormControl>
+                      <Textarea {...field} rows={3} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
             </div>
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isPending}>
-              {isPending
-                ? "Saving..."
-                : mode === "create"
-                  ? "Create"
-                  : "Update"}
-            </Button>
-          </DialogFooter>
-        </form>
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isPending}>
+                {isPending
+                  ? "Saving..."
+                  : mode === "create"
+                    ? "Create"
+                    : "Update"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );
