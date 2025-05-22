@@ -9,6 +9,15 @@ import { Permission } from "../permissions/role-permissions";
 import { OrderStatus, OrderType, PaymentType } from "@prisma/client";
 import { auth } from "../auth";
 
+// Business type enum
+const BusinessType = {
+  RESTAURANT: 'RESTAURANT',
+  HOTEL: 'HOTEL',
+  SALON: 'SALON',
+} as const;
+
+type BusinessType = typeof BusinessType[keyof typeof BusinessType];
+
 // Validation schema for creating/updating orders
 const orderItemSchema = z.object({
   id: z.string().optional(),
@@ -34,6 +43,7 @@ const orderSchema = z.object({
   id: z.string().optional(),
   orderNumber: z.string().optional(),
   customerId: z.string().min(1, "Customer is required"),
+  businessType: z.enum([BusinessType.RESTAURANT, BusinessType.HOTEL, BusinessType.SALON]),
   items: z.array(orderItemSchema).min(1, "At least one item is required"),
   subtotal: z.number().positive(),
   tax: z.number().min(0),
@@ -71,7 +81,24 @@ const orderSchema = z.object({
   completedReason: z.string().optional(),
   deletedBy: z.string().optional(),
   deletedAt: z.date().optional(),
-});
+}).refine(
+  (data) => {
+    if (data.businessType === BusinessType.RESTAURANT && !data.tableId) {
+      return false;
+    }
+    if (data.businessType === BusinessType.HOTEL && !data.roomId) {
+      return false;
+    }
+    if (data.businessType === BusinessType.SALON && !data.appointmentId) {
+      return false;
+    }
+    return true;
+  },
+  {
+    message: "Required fields missing for the selected business type",
+    path: ["businessType"],
+  }
+);
 
 export async function getOrders(
   tenantId: string,
@@ -213,41 +240,64 @@ export async function createOrder(
     // Generate order number if not provided
     const orderNumber = validatedData.orderNumber || generateOrderNumber();
 
-    // Create order with items
-    const order = await prisma.order.create({
-      data: {
-        orderNumber,
-        status: validatedData.status,
-        paymentType: validatedData.paymentType,
-        tax: validatedData.tax,
-        discount: validatedData.discount,
-        total: validatedData.total,
-        orderType: validatedData.orderType,
-        ...(validatedData.reservationId && {
-          reservation: {
-            connect: { id: validatedData.reservationId },
-          },
-        }),
-        tenant: {
-          connect: { id: tenantId },
-        },
-        user: {
-          connect: { id: userId },
-        },
-        customerProfile: {
-          connect: { id: validatedData.customerId },
-        },
-        orderItems: {
-          create: validatedData.items.map((item) => ({
-            quantity: item.quantity,
-            price: item.price,
-            notes: item.notes,
-            product: {
-              connect: { id: item.productId },
-            },
-          })),
-        },
+    // Prepare base order data
+    const orderData: any = {
+      orderNumber,
+      status: validatedData.status,
+      paymentType: validatedData.paymentType,
+      tax: validatedData.tax,
+      discount: validatedData.discount,
+      total: validatedData.total,
+      orderType: validatedData.orderType,
+      tenant: {
+        connect: { id: tenantId },
       },
+      user: {
+        connect: { id: userId },
+      },
+      customerProfile: {
+        connect: { id: validatedData.customerId },
+      },
+      orderItems: {
+        create: validatedData.items.map((item) => ({
+          quantity: item.quantity,
+          price: item.price,
+          notes: item.notes,
+          product: {
+            connect: { id: item.productId },
+          },
+        })),
+      },
+    };
+
+    // Add business-specific data
+    switch (validatedData.businessType) {
+      case BusinessType.RESTAURANT:
+        if (validatedData.tableId) {
+          orderData.table = { connect: { id: validatedData.tableId } };
+        }
+        if (validatedData.reservationId) {
+          orderData.reservation = { connect: { id: validatedData.reservationId } };
+        }
+        break;
+      case BusinessType.HOTEL:
+        if (validatedData.roomId) {
+          orderData.room = { connect: { id: validatedData.roomId } };
+        }
+        if (validatedData.bookingId) {
+          orderData.booking = { connect: { id: validatedData.bookingId } };
+        }
+        break;
+      case BusinessType.SALON:
+        if (validatedData.appointmentId) {
+          orderData.appointment = { connect: { id: validatedData.appointmentId } };
+        }
+        break;
+    }
+
+    // Create order
+    const order = await prisma.order.create({
+      data: orderData,
     });
 
     // Create audit log
@@ -284,11 +334,16 @@ export async function updateOrderStatus(
       return { error: "You don't have permission to update orders" };
     }
 
-    // Get the current order
+    // Get the current order with related data
     const currentOrder = await prisma.order.findFirst({
       where: {
         id: orderId,
         tenantId,
+      },
+      include: {
+        table: true,
+        room: true,
+        appointment: true,
       },
     });
 
@@ -301,6 +356,31 @@ export async function updateOrderStatus(
       where: { id: orderId },
       data: { status },
     });
+
+    // Handle business-specific status updates
+    if (status === OrderStatus.COMPLETED) {
+      if (currentOrder.table) {
+        // Update table status for restaurant
+        await prisma.table.update({
+          where: { id: currentOrder.table.id },
+          data: { status: 'AVAILABLE' },
+        });
+      }
+      if (currentOrder.room) {
+        // Update room status for hotel
+        await prisma.room.update({
+          where: { id: currentOrder.room.id },
+          data: { status: 'AVAILABLE' },
+        });
+      }
+      if (currentOrder.appointment) {
+        // Update appointment status for salon
+        await prisma.appointment.update({
+          where: { id: currentOrder.appointment.id },
+          data: { status: 'COMPLETED' },
+        });
+      }
+    }
 
     // Create audit log
     await prisma.auditLog.create({
