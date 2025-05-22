@@ -15,26 +15,26 @@ const orderItemSchema = z.object({
   productId: z.string(),
   name: z.string(),
   sku: z.string().optional(),
-  quantity: z.number().positive(),
+  quantity: z.number().int().positive(),
   price: z.number().positive(),
   total: z.number().positive(),
-  options: z.array(z.string()).optional(),
+  notes: z.string().optional(),
 });
 
 const addressSchema = z.object({
-  line1: z.string(),
+  line1: z.string().min(1, "Address line 1 is required"),
   line2: z.string().optional(),
-  city: z.string(),
-  state: z.string(),
-  postalCode: z.string(),
-  country: z.string(),
+  city: z.string().min(1, "City is required"),
+  state: z.string().min(1, "State is required"),
+  postalCode: z.string().min(1, "Postal code is required"),
+  country: z.string().min(1, "Country is required"),
 });
 
 const orderSchema = z.object({
   id: z.string().optional(),
   orderNumber: z.string().optional(),
-  customerId: z.string(),
-  items: z.array(orderItemSchema),
+  customerId: z.string().min(1, "Customer is required"),
+  items: z.array(orderItemSchema).min(1, "At least one item is required"),
   subtotal: z.number().positive(),
   tax: z.number().min(0),
   shipping: z.number().min(0).optional().default(0),
@@ -42,12 +42,35 @@ const orderSchema = z.object({
   total: z.number().positive(),
   status: z.nativeEnum(OrderStatus),
   paymentType: z.nativeEnum(PaymentType),
-  orderType: z.nativeEnum(OrderType).optional(),
+  orderType: z.nativeEnum(OrderType).optional().default(OrderType.STANDARD),
+
+  // Restaurant specific fields
+  tableId: z.string().optional(),
   reservationId: z.string().optional(),
+
+  // Hotel specific fields
+  roomId: z.string().optional(),
+  bookingId: z.string().optional(),
+
+  // Salon/Spa specific fields
+  appointmentId: z.string().optional(),
+
+  // Address fields
   shippingAddress: addressSchema.optional(),
   billingAddress: addressSchema.optional(),
+
+  // Additional fields
   notes: z.string().optional().default(""),
   trackingNumber: z.string().optional(),
+
+  // Timestamps (these will be handled by the server)
+  createdAt: z.date().optional(),
+  updatedAt: z.date().optional(),
+  completedAt: z.date().optional(),
+  completedBy: z.string().optional(),
+  completedReason: z.string().optional(),
+  deletedBy: z.string().optional(),
+  deletedAt: z.date().optional(),
 });
 
 export async function getOrders(
@@ -202,8 +225,8 @@ export async function createOrder(
         orderType: validatedData.orderType,
         ...(validatedData.reservationId && {
           reservation: {
-            connect: { id: validatedData.reservationId }
-          }
+            connect: { id: validatedData.reservationId },
+          },
         }),
         tenant: {
           connect: { id: tenantId },
@@ -218,7 +241,7 @@ export async function createOrder(
           create: validatedData.items.map((item) => ({
             quantity: item.quantity,
             price: item.price,
-            notes: item.options?.join(", "),
+            notes: item.notes,
             product: {
               connect: { id: item.productId },
             },
