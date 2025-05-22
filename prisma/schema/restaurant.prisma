@@ -30,8 +30,9 @@ model Reservation {
     customerEmail   String?
     partySize       Int
     reservationTime DateTime
-    endTime         DateTime? // Add this field
+    endTime         DateTime?
     specialRequests String?
+    orders          Order[]
 
     @@index([tenantId])
     @@index([tableId])

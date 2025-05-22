@@ -14,18 +14,32 @@ model Category {
 }
 
 model Order {
-    id                String             @id @default(cuid())
-    orderNumber       String             @unique
-    status            OrderStatus        @default(PENDING)
-    total             Float
-    tax               Float              @default(0)
-    discount          Float              @default(0)
-    paymentType       PaymentType        @default(CASH)
-    orderType         OrderType          @default(STANDARD) // Different order types based on business
-    tableId           String? // For restaurants
-    table             Table?             @relation(fields: [tableId], references: [id])
-    roomId            String? // For hotels
-    room              Room?              @relation(fields: [roomId], references: [id])
+    id          String      @id @default(cuid())
+    orderNumber String      @unique
+    status      OrderStatus @default(PENDING)
+    total       Float
+    tax         Float       @default(0)
+    discount    Float       @default(0)
+    paymentType PaymentType @default(CASH)
+    orderType   OrderType   @default(STANDARD)
+
+    // Restaurant specific
+    tableId       String?
+    table         Table?       @relation(fields: [tableId], references: [id])
+    reservationId String?
+    reservation   Reservation? @relation(fields: [reservationId], references: [id])
+
+    // Hotel specific
+    roomId    String?
+    room      Room?    @relation(fields: [roomId], references: [id])
+    bookingId String?
+    booking   Booking? @relation(fields: [bookingId], references: [id])
+
+    // Salon/Spa specific
+    appointmentId String?
+    appointment   Appointment? @relation(fields: [appointmentId], references: [id])
+
+    // Universal relationships
     userId            String
     user              User               @relation(fields: [userId], references: [id])
     tenantId          String
@@ -34,25 +48,33 @@ model Order {
     delivery          Delivery?
     creditTransaction CreditTransaction?
     refunds           Refund[]
-    createdAt         DateTime           @default(now())
-    updatedAt         DateTime           @updatedAt
-    completedAt       DateTime?
-    completedBy       String?
-    completedReason   String?
-    deletedBy         String?
-    deletedAt         DateTime?
 
+    // Customer relationship
     customerProfileId String?
     customerProfile   CustomerProfile? @relation(fields: [customerProfileId], references: [id])
 
+    // Timestamps and tracking
+    createdAt       DateTime  @default(now())
+    updatedAt       DateTime  @updatedAt
+    completedAt     DateTime?
+    completedBy     String?
+    completedReason String?
+    deletedBy       String?
+    deletedAt       DateTime?
+
+    // Indexes for all relationships and commonly queried fields
     @@index([tenantId])
     @@index([userId])
-    @@index([tableId])
-    @@index([roomId])
-    @@index([tenantId, createdAt]) // Index for sorting by createdAt
-    @@index([status])
-    @@index([orderNumber])
     @@index([customerProfileId])
+    @@index([tableId])
+    @@index([reservationId])
+    @@index([roomId])
+    @@index([bookingId])
+    @@index([appointmentId])
+    @@index([status])
+    @@index([orderType])
+    @@index([orderNumber])
+    @@index([createdAt])
     @@index([completedAt])
     @@index([completedBy])
 }

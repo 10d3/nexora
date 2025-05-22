@@ -64,7 +64,7 @@ export default async function PosLayout({
       redirect("/sign-in");
     }
 
-    // console.log("session is : ", session);
+    console.log("session is : ", session);
 
     // Get all tenants, active tenant, and formatted tenant data
     const { allTenants, activeTenant, tenantsData } = await getCachingAllTenants(

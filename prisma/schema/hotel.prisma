@@ -60,6 +60,7 @@ model Booking {
     tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
     createdAt   DateTime      @default(now())
     updatedAt   DateTime      @updatedAt
+    orders      Order[]
 
     customerProfileId String?
     customerProfile   CustomerProfile? @relation(fields: [customerProfileId], references: [id])

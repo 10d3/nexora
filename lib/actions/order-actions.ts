@@ -37,16 +37,16 @@ const orderSchema = z.object({
   items: z.array(orderItemSchema),
   subtotal: z.number().positive(),
   tax: z.number().min(0),
-  shipping: z.number().min(0),
+  shipping: z.number().min(0).optional().default(0),
   discount: z.number().min(0),
   total: z.number().positive(),
   status: z.nativeEnum(OrderStatus),
   paymentType: z.nativeEnum(PaymentType),
   orderType: z.nativeEnum(OrderType).optional(),
-  // Remove paymentMethod as it doesn't exist in your Prisma schema
-  shippingAddress: addressSchema,
-  billingAddress: addressSchema,
-  notes: z.string().optional(),
+  reservationId: z.string().optional(),
+  shippingAddress: addressSchema.optional(),
+  billingAddress: addressSchema.optional(),
+  notes: z.string().optional().default(""),
   trackingNumber: z.string().optional(),
 });
 
@@ -200,11 +200,16 @@ export async function createOrder(
         discount: validatedData.discount,
         total: validatedData.total,
         orderType: validatedData.orderType,
+        ...(validatedData.reservationId && {
+          reservation: {
+            connect: { id: validatedData.reservationId }
+          }
+        }),
         tenant: {
           connect: { id: tenantId },
         },
         user: {
-          connect: { id: userId }, // Connect the user
+          connect: { id: userId },
         },
         customerProfile: {
           connect: { id: validatedData.customerId },

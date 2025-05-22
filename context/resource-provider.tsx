@@ -32,14 +32,12 @@ const ResourceContext = createContext<ResourceContextType | undefined>(
   undefined
 );
 
-export function ResourceProvider({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export function ResourceProvider({ children }: { children: React.ReactNode }) {
   const { tenantId, businessType } = useDashboard();
   const queryClient = useQueryClient();
-  const [selectedResource, setSelectedResource] = useState<IResource | null>(null);
+  const [selectedResource, setSelectedResource] = useState<IResource | null>(
+    null
+  );
   const [view, setView] = useState<"table" | "grid" | "list">("table");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
@@ -71,7 +69,14 @@ export function ResourceProvider({
 
   // Use TanStack Query for resources
   const resourcesQuery = useQuery({
-    queryKey: ["resources", businessType, tenantId, statusFilter, typeFilter, search],
+    queryKey: [
+      "resources",
+      businessType,
+      tenantId,
+      statusFilter,
+      typeFilter,
+      search,
+    ],
     queryFn: async () => {
       if (!tenantId) return [];
 
@@ -84,14 +89,14 @@ export function ResourceProvider({
           let filteredResources = resources;
           if (statusFilter.length > 0) {
             filteredResources = filteredResources.filter((resource) =>
-              statusFilter.includes(resource.status || '')
+              statusFilter.includes(resource.status || "")
             );
           }
 
           // Apply type filter
           if (typeFilter.length > 0) {
             filteredResources = filteredResources.filter((resource) =>
-              typeFilter.includes(resource.type || '')
+              typeFilter.includes(resource.type || "")
             );
           }
 
@@ -100,8 +105,10 @@ export function ResourceProvider({
             const searchLower = search.toLowerCase();
             filteredResources = filteredResources.filter(
               (resource) =>
-                (resource.name?.toLowerCase() || '').includes(searchLower) ||
-                (resource.description?.toLowerCase() || '').includes(searchLower)
+                (resource.name?.toLowerCase() || "").includes(searchLower) ||
+                (resource.description?.toLowerCase() || "").includes(
+                  searchLower
+                )
             );
           }
 
@@ -121,15 +128,15 @@ export function ResourceProvider({
 
         // Store the fetched data in IndexedDB for offline use
         if (result.data && Array.isArray(result.data)) {
-          const resourcesWithTenantId = result.data.map(resource => ({
+          const resourcesWithTenantId = result.data.map((resource) => ({
             ...resource,
-            tenantId
+            tenantId,
           }));
-          
+
           for (const resource of resourcesWithTenantId) {
             await db.saveResource(resource);
           }
-          
+
           return resourcesWithTenantId;
         }
 

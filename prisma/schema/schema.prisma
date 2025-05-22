@@ -38,6 +38,7 @@ enum BusinessType {
   AUTOMOTIVE
 }
 
+
 // Authentication models
 
 model User {
