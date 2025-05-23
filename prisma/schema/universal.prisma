@@ -24,14 +24,10 @@ model Order {
     orderType   OrderType   @default(STANDARD)
 
     // Restaurant specific
-    tableId       String?
-    table         Table?       @relation(fields: [tableId], references: [id])
     reservationId String?
     reservation   Reservation? @relation(fields: [reservationId], references: [id])
 
     // Hotel specific
-    roomId    String?
-    room      Room?    @relation(fields: [roomId], references: [id])
     bookingId String?
     booking   Booking? @relation(fields: [bookingId], references: [id])
 
@@ -66,9 +62,7 @@ model Order {
     @@index([tenantId])
     @@index([userId])
     @@index([customerProfileId])
-    @@index([tableId])
     @@index([reservationId])
-    @@index([roomId])
     @@index([bookingId])
     @@index([appointmentId])
     @@index([status])
@@ -84,13 +78,24 @@ model OrderItem {
     quantity  Int
     price     Float
     notes     String?
-    productId String
-    product   Product  @relation(fields: [productId], references: [id])
-    orderId   String
-    order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+    productId String?
+    product   Product? @relation(fields: [productId], references: [id])
+
+    // Restaurant specific
+    menuId String?
+    menu   MenuItem? @relation(fields: [menuId], references: [id])
+
+    // Hotel specific
+    roomId String?
+    room   Room?   @relation(fields: [roomId], references: [id])
+
+    orderId   String?
+    order     Order?   @relation(fields: [orderId], references: [id], onDelete: Cascade)
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 
     @@index([productId])
     @@index([orderId])
+    @@index([roomId])
+    @@index([menuId])
 }

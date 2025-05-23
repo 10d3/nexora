@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { checkPermission } from "../permissions/server-permissions";
 import { Permission } from "../permissions/role-permissions";
-import { OrderStatus, OrderType, PaymentType } from "@prisma/client";
+import { OrderStatus, OrderType, PaymentType, BookingStatus } from "@prisma/client";
 import { auth } from "../auth";
 
 // Business type enum
@@ -14,6 +14,9 @@ const BusinessType = {
   RESTAURANT: 'RESTAURANT',
   HOTEL: 'HOTEL',
   SALON: 'SALON',
+  RETAIL: 'RETAIL',
+  PHARMACY: 'PHARMACY',
+  SUPERMARKET: 'SUPERMARKET',
 } as const;
 
 type BusinessType = typeof BusinessType[keyof typeof BusinessType];
@@ -21,29 +24,34 @@ type BusinessType = typeof BusinessType[keyof typeof BusinessType];
 // Validation schema for creating/updating orders
 const orderItemSchema = z.object({
   id: z.string().optional(),
-  productId: z.string(),
+  productId: z.string().optional(),
+  menuId: z.string().optional(),
   name: z.string(),
   sku: z.string().optional(),
   quantity: z.number().int().positive(),
   price: z.number().positive(),
   total: z.number().positive(),
   notes: z.string().optional(),
+  reservationId: z.string().optional(),
+  bookingId: z.string().optional(),
+  appointmentId: z.string().optional(),
 });
 
-const addressSchema = z.object({
-  line1: z.string().min(1, "Address line 1 is required"),
-  line2: z.string().optional(),
-  city: z.string().min(1, "City is required"),
-  state: z.string().min(1, "State is required"),
-  postalCode: z.string().min(1, "Postal code is required"),
-  country: z.string().min(1, "Country is required"),
-});
+// Define the type for order items
+type OrderItem = z.infer<typeof orderItemSchema>;
 
 const orderSchema = z.object({
   id: z.string().optional(),
   orderNumber: z.string().optional(),
   customerId: z.string().min(1, "Customer is required"),
-  businessType: z.enum([BusinessType.RESTAURANT, BusinessType.HOTEL, BusinessType.SALON]),
+  businessType: z.enum([
+    BusinessType.RESTAURANT,
+    BusinessType.HOTEL,
+    BusinessType.SALON,
+    BusinessType.RETAIL,
+    BusinessType.PHARMACY,
+    BusinessType.SUPERMARKET,
+  ]),
   items: z.array(orderItemSchema).min(1, "At least one item is required"),
   subtotal: z.number().positive(),
   tax: z.number().min(0),
@@ -53,27 +61,8 @@ const orderSchema = z.object({
   status: z.nativeEnum(OrderStatus),
   paymentType: z.nativeEnum(PaymentType),
   orderType: z.nativeEnum(OrderType).optional().default(OrderType.STANDARD),
-
-  // Restaurant specific fields
-  tableId: z.string().optional(),
-  reservationId: z.string().optional(),
-
-  // Hotel specific fields
-  roomId: z.string().optional(),
-  bookingId: z.string().optional(),
-
-  // Salon/Spa specific fields
-  appointmentId: z.string().optional(),
-
-  // Address fields
-  shippingAddress: addressSchema.optional(),
-  billingAddress: addressSchema.optional(),
-
-  // Additional fields
   notes: z.string().optional().default(""),
   trackingNumber: z.string().optional(),
-
-  // Timestamps (these will be handled by the server)
   createdAt: z.date().optional(),
   updatedAt: z.date().optional(),
   completedAt: z.date().optional(),
@@ -83,16 +72,20 @@ const orderSchema = z.object({
   deletedAt: z.date().optional(),
 }).refine(
   (data) => {
-    if (data.businessType === BusinessType.RESTAURANT && !data.tableId) {
-      return false;
-    }
-    if (data.businessType === BusinessType.HOTEL && !data.roomId) {
-      return false;
-    }
-    if (data.businessType === BusinessType.SALON && !data.appointmentId) {
-      return false;
-    }
-    return true;
+    // Check if any item has the required business-specific field based on business type
+    const hasRequiredField = data.items.some((item: OrderItem) => {
+      switch (data.businessType) {
+        case BusinessType.RESTAURANT:
+          return item.reservationId !== undefined;
+        case BusinessType.HOTEL:
+          return item.bookingId !== undefined;
+        case BusinessType.SALON:
+          return item.appointmentId !== undefined;
+        default:
+          return true;
+      }
+    });
+    return hasRequiredField;
   },
   {
     message: "Required fields missing for the selected business type",
@@ -158,6 +151,8 @@ export async function getOrders(
       }
     }
 
+    console.log("where", where);
+
     // Count total orders for pagination
     const totalOrders = await prisma.order.count({ where });
 
@@ -169,6 +164,11 @@ export async function getOrders(
         orderItems: {
           include: {
             product: true,
+            // reservation: true,
+            // booking: true,
+            // appointment: true,
+            menu: true,
+            room: true,
           },
         },
       },
@@ -176,6 +176,8 @@ export async function getOrders(
       take: limit,
       skip: offset,
     });
+
+    console.log("orders", orders);
 
     return {
       orders,
@@ -205,6 +207,11 @@ export async function getOrderById(orderId: string, tenantId: string) {
         orderItems: {
           include: {
             product: true,
+            // reservation: true,
+            // booking: true,
+            // appointment: true,
+            menu: true,
+            room: true,
           },
         },
       },
@@ -237,6 +244,8 @@ export async function createOrder(
     // Validate order data
     const validatedData = orderSchema.parse(data);
 
+    console.log("Validated data:", validatedData.items);
+
     // Generate order number if not provided
     const orderNumber = validatedData.orderNumber || generateOrderNumber();
 
@@ -258,46 +267,66 @@ export async function createOrder(
       customerProfile: {
         connect: { id: validatedData.customerId },
       },
-      orderItems: {
-        create: validatedData.items.map((item) => ({
-          quantity: item.quantity,
-          price: item.price,
-          notes: item.notes,
-          product: {
-            connect: { id: item.productId },
-          },
-        })),
-      },
     };
 
-    // Add business-specific data
-    switch (validatedData.businessType) {
-      case BusinessType.RESTAURANT:
-        if (validatedData.tableId) {
-          orderData.table = { connect: { id: validatedData.tableId } };
-        }
-        if (validatedData.reservationId) {
-          orderData.reservation = { connect: { id: validatedData.reservationId } };
-        }
-        break;
-      case BusinessType.HOTEL:
-        if (validatedData.roomId) {
-          orderData.room = { connect: { id: validatedData.roomId } };
-        }
-        if (validatedData.bookingId) {
-          orderData.booking = { connect: { id: validatedData.bookingId } };
-        }
-        break;
-      case BusinessType.SALON:
-        if (validatedData.appointmentId) {
-          orderData.appointment = { connect: { id: validatedData.appointmentId } };
-        }
-        break;
+    // Add business-specific relations to the order
+    if (validatedData.businessType === BusinessType.RESTAURANT) {
+      const reservationId = validatedData.items[0]?.reservationId;
+      if (reservationId) {
+        orderData.reservation = {
+          connect: { id: reservationId },
+        };
+      }
+    } else if (validatedData.businessType === BusinessType.HOTEL) {
+      const bookingId = validatedData.items[0]?.bookingId;
+      if (bookingId) {
+        orderData.booking = {
+          connect: { id: bookingId },
+        };
+      }
+    } else if (validatedData.businessType === BusinessType.SALON) {
+      const appointmentId = validatedData.items[0]?.appointmentId;
+      if (appointmentId) {
+        orderData.appointment = {
+          connect: { id: appointmentId },
+        };
+      }
     }
+
+    console.log("Creating order with data:", orderData);
 
     // Create order
     const order = await prisma.order.create({
-      data: orderData,
+      data: {
+        ...orderData,
+        orderItems: {
+          create: validatedData.items.map((item) => ({
+            quantity: item.quantity,
+            price: item.price,
+            notes: item.notes,
+            // Only connect product if productId exists
+            ...(item.productId && {
+              product: {
+                connect: { id: item.productId },
+              },
+            }),
+            // Only connect menu if menuId exists
+            ...(item.menuId && {
+              menu: {
+                connect: { id: item.menuId },
+              },
+            }),
+          })),
+        },
+      },
+      include: {
+        orderItems: {
+          include: {
+            product: true,
+            menu: true,
+          },
+        },
+      },
     });
 
     // Create audit log
@@ -341,9 +370,12 @@ export async function updateOrderStatus(
         tenantId,
       },
       include: {
-        table: true,
-        room: true,
-        appointment: true,
+        orderItems: {
+          include: {
+            menu: true,
+            room: true,
+          },
+        },
       },
     });
 
@@ -355,30 +387,42 @@ export async function updateOrderStatus(
     const updatedOrder = await prisma.order.update({
       where: { id: orderId },
       data: { status },
+      include: {
+        orderItems: true,
+      },
     });
 
     // Handle business-specific status updates
-    if (status === OrderStatus.COMPLETED) {
-      if (currentOrder.table) {
-        // Update table status for restaurant
-        await prisma.table.update({
-          where: { id: currentOrder.table.id },
-          data: { status: 'AVAILABLE' },
-        });
-      }
-      if (currentOrder.room) {
-        // Update room status for hotel
-        await prisma.room.update({
-          where: { id: currentOrder.room.id },
-          data: { status: 'AVAILABLE' },
-        });
-      }
-      if (currentOrder.appointment) {
-        // Update appointment status for salon
-        await prisma.appointment.update({
-          where: { id: currentOrder.appointment.id },
-          data: { status: 'COMPLETED' },
-        });
+    if (status === OrderStatus.COMPLETED && currentOrder.orderItems) {
+      // Update status for each order item
+      for (const item of currentOrder.orderItems) {
+        const typedItem = item as unknown as {
+          reservationId?: string;
+          bookingId?: string;
+          appointmentId?: string;
+        };
+
+        // Update reservation status if exists
+        if (typedItem.reservationId) {
+          await prisma.reservation.update({
+            where: { id: typedItem.reservationId },
+            data: { status: 'COMPLETED' },
+          });
+        }
+        // Update booking status if exists
+        if (typedItem.bookingId) {
+          await prisma.booking.update({
+            where: { id: typedItem.bookingId },
+            data: { status: BookingStatus.CHECKED_OUT },
+          });
+        }
+        // Update appointment status if exists
+        if (typedItem.appointmentId) {
+          await prisma.appointment.update({
+            where: { id: typedItem.appointmentId },
+            data: { status: 'COMPLETED' },
+          });
+        }
       }
     }
 

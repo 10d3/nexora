@@ -172,7 +172,7 @@ export function OrderDetailsSheet() {
           </SheetDescription>
         </SheetHeader>
 
-        <Tabs defaultValue="details" className="mt-6">
+        <Tabs defaultValue="details" className="mt-6 px-6">
           <TabsList className="grid grid-cols-3 mb-4">
             <TabsTrigger value="details">Details</TabsTrigger>
             <TabsTrigger value="customer">Customer</TabsTrigger>

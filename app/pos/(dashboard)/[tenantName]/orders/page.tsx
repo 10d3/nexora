@@ -42,6 +42,22 @@ import { useOrders } from "@/context/order-provider";
 import { toast } from "sonner";
 import { formatCurrency, formatDate, getInitials } from "@/lib/utils";
 import { CustomPagination } from "@/components/shared/custom-pagination";
+import { OrderStatus, PaymentType } from "@prisma/client";
+
+interface Order {
+  id: string;
+  orderNumber: string;
+  customerProfile: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    avatar?: string;
+  };
+  status: OrderStatus;
+  paymentType: PaymentType;
+  orderDate: Date;
+  total: number;
+}
 
 export default function OrdersPage() {
   const [sortConfig, setSortConfig] = useState<{
@@ -51,6 +67,7 @@ export default function OrdersPage() {
 
   const {
     orders,
+    ordersData,
     selectedOrder,
     isLoading,
     filteredOrders,
@@ -77,10 +94,7 @@ export default function OrdersPage() {
     setSortConfig({ key, direction });
   };
 
-  const { getStatusBadge, getPaymentStatusBadge } = useOrderStatusUtils({
-    orders,
-    selectedOrder,
-  });
+  const { getStatusBadge, getPaymentStatusBadge } = useOrderStatusUtils();
 
   // Handle view order details
   const handleViewOrderDetails = (order: any) => {
@@ -105,6 +119,8 @@ export default function OrdersPage() {
       }
     }
   };
+
+  console.log("orders from page", ordersData);
 
   return (
     <div className="container mx-auto py-6 space-y-8">
@@ -241,20 +257,20 @@ export default function OrdersPage() {
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <Avatar className="h-8 w-8">
-                            {order.customer?.avatar ? (
+                            {order.customerProfile?.avatar ? (
                               <AvatarImage
-                                src={order.customer.avatar}
-                                alt={order.customer.name}
+                                src={order.customerProfile.avatar}
+                                alt={order.customerProfile.firstName}
                               />
                             ) : null}
                             <AvatarFallback>
-                              {getInitials(order.customer?.name || "")}
+                              {getInitials(order.customerProfile?.firstName || "")}
                             </AvatarFallback>
                           </Avatar>
                           <div className="text-sm">
-                            <div>{order.customer?.name}</div>
+                            <div>{order.customerProfile?.firstName}</div>
                             <div className="text-xs text-muted-foreground">
-                              {order.customer?.email}
+                              {order.customerProfile?.email}
                             </div>
                           </div>
                         </div>

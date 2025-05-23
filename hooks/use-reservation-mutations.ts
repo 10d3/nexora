@@ -18,7 +18,8 @@ interface ReservationResult {
 
 export function useReservationMutation(businessType: string, tenantId: string) {
   const queryClient = useQueryClient();
-  const { updateLocalReservation, addLocalReservation, isOffline } = useReservation();
+  const { updateLocalReservation, addLocalReservation, isOffline } =
+    useReservation();
 
   const createMutation = useMutation({
     mutationFn: async (reservationData: any): Promise<ReservationResult> => {
@@ -30,14 +31,16 @@ export function useReservationMutation(businessType: string, tenantId: string) {
           id: tempId,
           partySize: reservationData.size,
           reservationTime: new Date(reservationData.startTime),
-          endTime: reservationData.endTime ? new Date(reservationData.endTime) : null,
+          endTime: reservationData.endTime
+            ? new Date(reservationData.endTime)
+            : null,
           createdAt: new Date(),
           updatedAt: new Date(),
-          tenantId
+          tenantId,
         };
-        
+
         await db.saveReservation(tempReservation);
-        
+
         // Queue for later sync
         await db.saveQueuedAction({
           id: crypto.randomUUID(),
@@ -45,17 +48,21 @@ export function useReservationMutation(businessType: string, tenantId: string) {
           params: {
             data: reservationData,
             tenantId,
-            businessType
+            businessType,
           },
           timestamp: new Date(),
-          retries: 0
+          retries: 0,
         });
-        
+
         return { success: true, data: tempReservation };
       }
-      
+
       // If online, use the regular API
-      const result = await createReservation(businessType, reservationData, tenantId);
+      const result = await createReservation(
+        businessType,
+        reservationData,
+        tenantId
+      );
       if (result.success && result.data) {
         // Convert API response to IReservation format
         const reservation: IReservation = {
@@ -65,7 +72,7 @@ export function useReservationMutation(businessType: string, tenantId: string) {
           endTime: result.data.endTime ? new Date(result.data.endTime) : null,
           createdAt: new Date(result.data.createdAt),
           updatedAt: new Date(result.data.updatedAt),
-          tenantId
+          tenantId,
         };
         return { success: true, data: reservation };
       }
@@ -90,7 +97,9 @@ export function useReservationMutation(businessType: string, tenantId: string) {
         id: `temp-${Date.now()}`,
         partySize: newReservation.size,
         reservationTime: new Date(newReservation.startTime),
-        endTime: newReservation.endTime ? new Date(newReservation.endTime) : null,
+        endTime: newReservation.endTime
+          ? new Date(newReservation.endTime)
+          : null,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -127,10 +136,10 @@ export function useReservationMutation(businessType: string, tenantId: string) {
               );
             }
           );
-          
+
           // Also update in IndexedDB if we got a server response
           if (!isOffline) {
-            db.saveReservation(result.data).catch((error: Error) => 
+            db.saveReservation(result.data).catch((error: Error) =>
               console.error("Error saving reservation to IndexedDB:", error)
             );
           }
@@ -163,13 +172,15 @@ export function useReservationMutation(businessType: string, tenantId: string) {
           ...reservationData,
           partySize: reservationData.size,
           reservationTime: new Date(reservationData.startTime),
-          endTime: reservationData.endTime ? new Date(reservationData.endTime) : null,
+          endTime: reservationData.endTime
+            ? new Date(reservationData.endTime)
+            : null,
           updatedAt: new Date(),
-          tenantId
+          tenantId,
         };
-        
+
         await db.saveReservation(updatedReservation);
-        
+
         // Queue for later sync
         await db.saveQueuedAction({
           id: crypto.randomUUID(),
@@ -177,17 +188,21 @@ export function useReservationMutation(businessType: string, tenantId: string) {
           params: {
             data: reservationData,
             tenantId,
-            businessType
+            businessType,
           },
           timestamp: new Date(),
-          retries: 0
+          retries: 0,
         });
-        
+
         return { success: true, data: updatedReservation };
       }
-      
+
       // If online, use the regular API
-      const result = await updateReservation(businessType, reservationData, tenantId);
+      const result = await updateReservation(
+        businessType,
+        reservationData,
+        tenantId
+      );
       if (result.success && result.data) {
         // Convert API response to IReservation format
         const reservation: IReservation = {
@@ -197,7 +212,7 @@ export function useReservationMutation(businessType: string, tenantId: string) {
           endTime: result.data.endTime ? new Date(result.data.endTime) : null,
           createdAt: new Date(result.data.createdAt),
           updatedAt: new Date(result.data.updatedAt),
-          tenantId
+          tenantId,
         };
         return { success: true, data: reservation };
       }
@@ -221,9 +236,11 @@ export function useReservationMutation(businessType: string, tenantId: string) {
         ...updatedReservation,
         partySize: updatedReservation.size,
         reservationTime: new Date(updatedReservation.startTime),
-        endTime: updatedReservation.endTime ? new Date(updatedReservation.endTime) : null,
+        endTime: updatedReservation.endTime
+          ? new Date(updatedReservation.endTime)
+          : null,
         updatedAt: new Date(),
-        tenantId: updatedReservation.tenantId
+        tenantId: updatedReservation.tenantId,
       };
 
       // Update local state for immediate UI update
@@ -250,10 +267,10 @@ export function useReservationMutation(businessType: string, tenantId: string) {
             ? "The reservation has been updated locally and will sync when you're back online."
             : "The reservation has been successfully updated.",
         });
-        
+
         // Also update in IndexedDB if we got a server response
         if (!isOffline && result.data) {
-          db.saveReservation(result.data).catch((error: Error) => 
+          db.saveReservation(result.data).catch((error: Error) =>
             console.error("Error updating reservation in IndexedDB:", error)
           );
         }

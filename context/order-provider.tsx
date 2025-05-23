@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { useParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getOrders, getOrderById } from "@/lib/actions/order-actions";
+import { useDashboard } from "./dashboard-provider";
 
 // Define types for order-related data
 type OrderItem = {
@@ -28,9 +29,10 @@ type OrderItem = {
   options?: string[];
 };
 
-type Customer = {
+type CustomerProfile = {
   id: string;
-  name: string;
+  firstName: string;
+  lastName: string;
   email: string;
   phone?: string;
   avatar?: string;
@@ -48,19 +50,38 @@ type Address = {
 type Order = {
   id: string;
   orderNumber: string;
-  customer: Customer;
+  customerProfile: CustomerProfile | null;
+  customer: {
+    id: string;
+    name: string;
+    email: string;
+    phone?: string;
+    avatar?: string;
+  };
   items: OrderItem[];
   total: number;
-  //   subtotal: number;
   tax: number;
   shipping: number;
   discount: number;
   orderDate: Date;
   status: OrderStatus;
   paymentType: PaymentType;
-  //   paymentMethod?: string;
-  shippingAddress: Address;
-  billingAddress: Address;
+  shippingAddress?: {
+    line1: string;
+    line2?: string;
+    city: string;
+    state: string;
+    postalCode: string;
+    country: string;
+  };
+  billingAddress?: {
+    line1: string;
+    line2?: string;
+    city: string;
+    state: string;
+    postalCode: string;
+    country: string;
+  };
   notes?: string;
   trackingNumber?: string;
   timeline?: {
@@ -73,6 +94,11 @@ type Order = {
 // Define the context type
 type OrderContextType = {
   orders: Order[];
+  ordersData: {
+    orders: Order[];
+    totalOrders: number;
+    error?: string;
+  } | null;
   filteredOrders: Order[];
   selectedOrder: Order | null;
   isLoading: boolean;
@@ -101,13 +127,11 @@ type OrderContextType = {
   ) => Promise<{ success: boolean; error?: string }>;
   refreshOrders: () => void;
   isPending: boolean;
-  // Add pagination properties
   currentPage: number;
   totalPages: number;
   pageSize: number;
   totalOrders: number;
   setCurrentPage: (page: number) => void;
-  // Add isOrderDetailsOpen state
   isOrderDetailsOpen: boolean;
   setIsOrderDetailsOpen: (isOpen: boolean) => void;
 };
@@ -123,6 +147,7 @@ type OrderProviderProps = {
 export function OrderProvider({ children }: OrderProviderProps) {
   const params = useParams();
   const tenantName = params.tenantName as string;
+  const { tenantId } = useDashboard();
   const queryClient = useQueryClient();
 
   // State for orders
@@ -216,7 +241,7 @@ export function OrderProvider({ children }: OrderProviderProps) {
       const offset = (currentPage - 1) * pageSize;
 
       return getOrders(
-        tenantName,
+        tenantId as string,
         searchQuery || undefined,
         statusFilter,
         paymentFilter,
@@ -229,60 +254,50 @@ export function OrderProvider({ children }: OrderProviderProps) {
     enabled: !!tenantName,
   });
 
+  console.log("ordersData", ordersData);
+
+  // Transform orders data
+  const transformOrder = (order: any): Order => ({
+    id: order.id,
+    orderNumber: order.orderNumber,
+    customerProfile: order.customerProfile,
+    customer: {
+      id: order.customerProfile?.id || '',
+      name: `${order.customerProfile?.firstName || ''} ${order.customerProfile?.lastName || ''}`.trim(),
+      email: order.customerProfile?.email || '',
+      phone: order.customerProfile?.phone || '',
+      avatar: order.customerProfile?.avatar
+    },
+    items: order.orderItems.map((item: any) => ({
+      id: item.id,
+      productId: item.productId,
+      name: item.product?.name || '',
+      sku: item.product?.sku || '',
+      quantity: item.quantity,
+      price: item.price,
+      total: item.total,
+      options: item.options
+    })),
+    total: order.total,
+    tax: order.tax,
+    shipping: order.shipping,
+    discount: order.discount,
+    orderDate: order.createdAt,
+    status: order.status,
+    paymentType: order.paymentType,
+    shippingAddress: order.shippingAddress,
+    billingAddress: order.billingAddress,
+    notes: order.notes,
+    trackingNumber: order.trackingNumber,
+    timeline: order.timeline
+  });
+
   // Update orders state when query data changes
   useEffect(() => {
-    if (ordersData && !ordersData.error && Array.isArray(ordersData.orders)) {
-      const formattedOrders = ordersData.orders.map((order: any) => ({
-        id: order.id,
-        orderNumber: order.orderNumber,
-        customer: {
-          id: order.customerProfile.id,
-          name: `${order.customerProfile.firstName} ${order.customerProfile.lastName}`,
-          email: order.customerProfile.email,
-          phone: order.customerProfile.phone,
-          avatar: order.customerProfile.avatar,
-        },
-        items: order.orderItems.map((item: any) => ({
-          id: item.id,
-          productId: item.productId,
-          name: item.product.name,
-          sku: item.product.sku,
-          quantity: item.quantity,
-          price: item.price,
-          total: item.quantity * item.price,
-          options: item.notes ? item.notes.split(", ") : [],
-        })),
-        total: order.total,
-        tax: order.tax || 0,
-        shipping: order.shipping || 0,
-        discount: order.discount || 0,
-        orderDate: new Date(order.createdAt),
-        status: order.status,
-        paymentType: order.paymentType,
-        shippingAddress: order.shippingAddress || {
-          line1: "",
-          city: "",
-          state: "",
-          postalCode: "",
-          country: "",
-        },
-        billingAddress: order.billingAddress || {
-          line1: "",
-          city: "",
-          state: "",
-          postalCode: "",
-          country: "",
-        },
-        notes: order.notes,
-        trackingNumber: order.trackingNumber,
-        timeline: order.timeline || [],
-      }));
-
-      setOrders(formattedOrders);
-      setFilteredOrders(formattedOrders);
-      setTotalOrders(ordersData.totalOrders || 0);
-    } else if (ordersData?.error) {
-      toast.error(ordersData.error);
+    if (ordersData?.orders) {
+      const transformedOrders = ordersData.orders.map(transformOrder);
+      setOrders(transformedOrders);
+      setFilteredOrders(transformedOrders);
     }
   }, [ordersData]);
 
@@ -339,8 +354,16 @@ export function OrderProvider({ children }: OrderProviderProps) {
   };
 
   // Context value
-  const value = {
+  const value: OrderContextType = {
     orders,
+    ordersData: ordersData?.error 
+      ? { orders: [], totalOrders: 0, error: ordersData.error }
+      : ordersData?.orders 
+        ? { 
+            orders: ordersData.orders.map(transformOrder), 
+            totalOrders: ordersData.totalOrders 
+          }
+        : null,
     filteredOrders,
     selectedOrder,
     isLoading,
@@ -359,13 +382,11 @@ export function OrderProvider({ children }: OrderProviderProps) {
     removeOrder,
     refreshOrders,
     isPending,
-    // Add pagination values
     currentPage,
     totalPages,
     pageSize,
     totalOrders,
     setCurrentPage,
-    // Add detail sheet state
     isOrderDetailsOpen,
     setIsOrderDetailsOpen,
   };

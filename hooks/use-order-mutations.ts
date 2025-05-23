@@ -16,7 +16,7 @@ import { useDashboard } from "@/context/dashboard-provider";
 // import { z } from "zod";
 
 export function useOrderMutation() {
-    const {tenantId} = useDashboard()
+  const { tenantId } = useDashboard();
   const [isPending, setIsPending] = useState(false);
   const queryClient = useQueryClient();
 
@@ -31,6 +31,11 @@ export function useOrderMutation() {
         ...orderData,
         id: tempId,
         createdAt: new Date(),
+        // Move business-specific fields to items
+        items: orderData.items.map((item: any) => ({
+          ...item,
+          id: `temp-item-${Date.now()}-${Math.random()}`,
+        })),
       };
 
       // Cancel any outgoing refetches
@@ -136,7 +141,11 @@ export function useOrderMutation() {
       }
 
       // Update the order status on the server
-      const result = await updateOrderStatus(orderId, status, tenantId as string);
+      const result = await updateOrderStatus(
+        orderId,
+        status,
+        tenantId as string
+      );
 
       if (result.order) {
         toast.success("Success", {
@@ -216,7 +225,11 @@ export function useOrderMutation() {
       }
 
       // Update the payment type on the server
-      const result = await updatePaymentType(orderId, paymentType, tenantId as string);
+      const result = await updatePaymentType(
+        orderId,
+        paymentType,
+        tenantId as string
+      );
 
       if (result.order) {
         toast.success("Success", {

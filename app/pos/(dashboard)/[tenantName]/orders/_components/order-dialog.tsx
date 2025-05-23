@@ -61,27 +61,45 @@ const formSchema = z.object({
     BusinessType.SUPERMARKET,
   ]),
   customerId: z.string().min(1, "Customer is required"),
-  tableId: z.string().optional(),
-  reservationId: z.string().optional(),
-  roomId: z.string().optional(),
-  bookingId: z.string().optional(),
-  appointmentId: z.string().optional(),
   specialInstructions: z.string().optional(),
   status: z.nativeEnum(OrderStatus),
   paymentType: z.nativeEnum(PaymentType),
   orderType: z.nativeEnum(OrderType),
+  // Add business-specific fields at root level for form handling
+  reservationId: z.string().optional(),
+  bookingId: z.string().optional(),
+  appointmentId: z.string().optional(),
   items: z
     .array(
       z.object({
-        id: z.string(),
-        productId: z.string(),
+        id: z.string().optional(),
+        productId: z.string().optional(),
+        menuId: z.string().optional(),
         name: z.string(),
-        quantity: z.number().min(1),
-        price: z.number().min(0),
-        total: z.number().min(0),
+        sku: z.string().optional(),
+        quantity: z.number().int().positive(),
+        price: z.number().positive(),
+        total: z.number().positive(),
+        notes: z.string().optional(),
+        // Add business-specific fields to items
+        reservationId: z.string().optional(),
+        bookingId: z.string().optional(),
+        appointmentId: z.string().optional(),
       })
     )
-    .min(1, "At least one item is required"),
+    .min(1, "At least one item is required")
+    .refine(
+      (items) => {
+        // For restaurants, at least one item must have menuId
+        const hasRestaurantItems = items.some((item) => item.menuId);
+        // For other business types, at least one item must have productId
+        const hasProductItems = items.some((item) => item.productId);
+        return hasRestaurantItems || hasProductItems;
+      },
+      {
+        message: "Items must be either menu items or products based on business type",
+      }
+    ),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -91,7 +109,8 @@ type Reservation = {
   customerName: string;
   reservationTime: Date;
   status: string;
-  tableId?: string;
+  resourceId?: string;
+  resourceType?: string;
 };
 
 type OrderDialogProps = {
@@ -123,12 +142,14 @@ interface ExtendedOrder {
   items: {
     id: string;
     productId: string;
+    menuId: string;
     name: string;
     sku: string;
     quantity: number;
     price: number;
     total: number;
     options?: string[];
+    notes?: string;
   }[];
   total: number;
   tax: number;
@@ -138,9 +159,7 @@ interface ExtendedOrder {
   status: OrderStatus;
   paymentType: PaymentType;
   notes?: string;
-  tableId?: string;
   reservationId?: string;
-  roomId?: string;
   bookingId?: string;
   appointmentId?: string;
   orderType?: OrderType;
@@ -159,11 +178,6 @@ export function OrderDialog({ open, onOpenChange, mode }: OrderDialogProps) {
       id: crypto.randomUUID(),
       businessType: BusinessType.RESTAURANT,
       customerId: "",
-      tableId: "",
-      reservationId: "",
-      roomId: "",
-      bookingId: "",
-      appointmentId: "",
       specialInstructions: "",
       status: OrderStatus.PENDING,
       paymentType: PaymentType.CASH,
@@ -175,11 +189,6 @@ export function OrderDialog({ open, onOpenChange, mode }: OrderDialogProps) {
   const [selectedProduct, setSelectedProduct] = useState("");
   const [quantity, setQuantity] = useState(1);
 
-  // Add debugging
-  console.log("Form errors:", form.formState.errors);
-  console.log("Form values:", form.getValues());
-  console.log("Form isValid:", form.formState.isValid);
-
   // Reset form when dialog opens/closes or mode changes
   useEffect(() => {
     if (open && mode === "edit" && selectedOrder) {
@@ -187,7 +196,7 @@ export function OrderDialog({ open, onOpenChange, mode }: OrderDialogProps) {
 
       // Determine business type based on the presence of business-specific fields
       let businessType: BusinessType = BusinessType.RESTAURANT;
-      if (extendedOrder.roomId || extendedOrder.bookingId) {
+      if (extendedOrder.bookingId) {
         businessType = BusinessType.HOTEL;
       } else if (extendedOrder.appointmentId) {
         businessType = BusinessType.SALON;
@@ -197,11 +206,6 @@ export function OrderDialog({ open, onOpenChange, mode }: OrderDialogProps) {
         id: extendedOrder.id,
         businessType,
         customerId: extendedOrder.customer.id,
-        tableId: extendedOrder.tableId || "",
-        reservationId: extendedOrder.reservationId || "",
-        roomId: extendedOrder.roomId || "",
-        bookingId: extendedOrder.bookingId || "",
-        appointmentId: extendedOrder.appointmentId || "",
         specialInstructions: extendedOrder.notes || "",
         status: extendedOrder.status,
         paymentType: extendedOrder.paymentType,
@@ -209,10 +213,16 @@ export function OrderDialog({ open, onOpenChange, mode }: OrderDialogProps) {
         items: extendedOrder.items.map((item) => ({
           id: item.id,
           productId: item.productId,
+          menuId: item.menuId,
           name: item.name,
+          sku: item.sku || undefined,
           quantity: item.quantity,
           price: item.price,
           total: item.total,
+          notes: item.notes || "",
+          reservationId: extendedOrder.reservationId || "",
+          bookingId: extendedOrder.bookingId || "",
+          appointmentId: extendedOrder.appointmentId || "",
         })),
       });
     } else {
@@ -220,11 +230,6 @@ export function OrderDialog({ open, onOpenChange, mode }: OrderDialogProps) {
         id: crypto.randomUUID(),
         businessType: BusinessType.RESTAURANT,
         customerId: "",
-        tableId: "",
-        reservationId: "",
-        roomId: "",
-        bookingId: "",
-        appointmentId: "",
         specialInstructions: "",
         status: OrderStatus.PENDING,
         paymentType: PaymentType.CASH,
@@ -237,37 +242,59 @@ export function OrderDialog({ open, onOpenChange, mode }: OrderDialogProps) {
   const handleAddItem = () => {
     if (!selectedProduct) return;
 
-    const product = menuItems.find((item) => item.id === selectedProduct);
-    if (!product) return;
+    const product = menuItems?.find((item) => item.id === selectedProduct);
+    if (!product || !product.name) return;
 
+    const businessType = form.getValues("businessType");
     const newItem = {
       id: `temp-${Date.now()}`,
-      productId: product.id,
+      // For restaurants, use menuId instead of productId
+      ...(businessType === BusinessType.RESTAURANT
+        ? { menuId: product.id }
+        : { productId: product.id }),
       name: product.name,
+      sku: product.sku || undefined,
       quantity: quantity,
       price: product.price,
       total: product.price * quantity,
+      notes: "",
+      // Add business-specific fields based on business type
+      ...(businessType === BusinessType.RESTAURANT && {
+        reservationId: form.getValues("reservationId"),
+      }),
+      ...(businessType === BusinessType.HOTEL && {
+        bookingId: form.getValues("bookingId"),
+      }),
+      ...(businessType === BusinessType.SALON && {
+        appointmentId: form.getValues("appointmentId"),
+      }),
     };
 
-    const currentItems = form.getValues("items");
-    form.setValue("items", [...currentItems, newItem]);
-
-    // Trigger validation for items field
-    form.trigger("items");
+    const currentItems = form.getValues("items") || [];
+    form.setValue("items", [...currentItems, newItem], {
+      shouldValidate: true,
+      shouldDirty: true,
+      shouldTouch: true,
+    });
 
     // Reset selection
     setSelectedProduct("");
     setQuantity(1);
   };
 
-  const handleRemoveItem = (itemId: string) => {
-    const currentItems = form.getValues("items");
+  const handleRemoveItem = (itemId: string | undefined) => {
+    if (!itemId) return; // Skip if no ID provided
+
+    const currentItems = form.getValues("items") || [];
     form.setValue(
       "items",
-      currentItems.filter((item) => item.id !== itemId)
+      currentItems.filter((item) => item.id !== itemId),
+      {
+        shouldValidate: true,
+        shouldDirty: true,
+        shouldTouch: true,
+      }
     );
-    // Trigger validation for items field
-    form.trigger("items");
   };
 
   const onSubmit = async (data: FormData) => {
@@ -284,9 +311,9 @@ export function OrderDialog({ open, onOpenChange, mode }: OrderDialogProps) {
 
       // Determine business type based on the presence of business-specific fields
       let businessType: BusinessType = BusinessType.RESTAURANT;
-      if (data.roomId || data.bookingId) {
+      if (data.items.some((item) => item.bookingId)) {
         businessType = BusinessType.HOTEL;
-      } else if (data.appointmentId) {
+      } else if (data.items.some((item) => item.appointmentId)) {
         businessType = BusinessType.SALON;
       }
 
@@ -294,13 +321,32 @@ export function OrderDialog({ open, onOpenChange, mode }: OrderDialogProps) {
         id: mode === "edit" ? data.id : undefined,
         customerId: data.customerId,
         businessType,
-        items: data.items.map((item) => ({
-          productId: item.productId,
-          name: item.name,
-          quantity: item.quantity,
-          price: item.price,
-          total: item.total,
-        })),
+        items: data.items.map((item) => {
+          // Find the product/menu item to ensure we have the name
+          const product = menuItems?.find((p) => 
+            businessType === BusinessType.RESTAURANT 
+              ? p.id === item.menuId 
+              : p.id === item.productId
+          );
+
+          // If no product is found, use the item's own data
+          return {
+            // For restaurants, use menuId instead of productId
+            ...(businessType === BusinessType.RESTAURANT
+              ? { menuId: item.menuId }
+              : { productId: item.productId }),
+            name: product?.name || item.name || "Custom Item",
+            sku: product?.sku || item.sku || undefined,
+            quantity: item.quantity,
+            price: item.price,
+            total: item.total,
+            notes: item.notes,
+            // Add business-specific fields to each item
+            reservationId: item.reservationId || undefined,
+            bookingId: item.bookingId || undefined,
+            appointmentId: item.appointmentId || undefined,
+          };
+        }),
         subtotal,
         tax,
         shipping: 0,
@@ -310,13 +356,6 @@ export function OrderDialog({ open, onOpenChange, mode }: OrderDialogProps) {
         paymentType: data.paymentType,
         orderType: data.orderType,
         notes: data.specialInstructions || "",
-
-        // Business specific fields
-        tableId: data.tableId || undefined,
-        reservationId: data.reservationId || undefined,
-        roomId: data.roomId || undefined,
-        bookingId: data.bookingId || undefined,
-        appointmentId: data.appointmentId || undefined,
       };
 
       console.log("Sending order data:", orderData);
@@ -333,7 +372,7 @@ export function OrderDialog({ open, onOpenChange, mode }: OrderDialogProps) {
           });
         } else {
           toast.error("Error", {
-            description: result.error || "Failed to create order",
+            description: result.success || "Failed to create order",
           });
         }
       } else {
@@ -348,27 +387,17 @@ export function OrderDialog({ open, onOpenChange, mode }: OrderDialogProps) {
           });
         } else {
           toast.error("Error", {
-            description: result.error || "Failed to update order",
+            description: result.success || "Failed to update order",
           });
         }
       }
     } catch (error) {
       console.error("Error saving order:", error);
       toast.error("Error", {
-        description: "An unexpected error occurred.",
+        description: error instanceof Error ? error.message : "An unexpected error occurred.",
       });
     }
   };
-
-  // Add a test submit handler to debug
-  //   const handleTestSubmit = (e: React.FormEvent) => {
-  //     console.log("🔍 Form submit event triggered");
-  //     console.log("Form state:", {
-  //       isValid: form.formState.isValid,
-  //       errors: form.formState.errors,
-  //       values: form.getValues(),
-  //     });
-  //   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -379,13 +408,7 @@ export function OrderDialog({ open, onOpenChange, mode }: OrderDialogProps) {
           </DialogTitle>
         </DialogHeader>
         <Form {...form}>
-          <form
-            onSubmit={(e) => {
-              //   handleTestSubmit(e);
-              form.handleSubmit(onSubmit)(e);
-            }}
-            className="space-y-6"
-          >
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             {/* Basic Information Section */}
             <div className="space-y-4">
               <h3 className="text-lg font-medium">Basic Information</h3>
@@ -429,18 +452,17 @@ export function OrderDialog({ open, onOpenChange, mode }: OrderDialogProps) {
                         <Select
                           onValueChange={(value) => {
                             field.onChange(value);
-                            // Set the table ID from the selected reservation
-                            const selectedReservation = reservations?.find(
-                              (res: Reservation) => res.id === value
+                            // Update all items with the selected reservation
+                            const currentItems = form.getValues("items");
+                            form.setValue(
+                              "items",
+                              currentItems.map((item) => ({
+                                ...item,
+                                reservationId: value,
+                              }))
                             );
-                            if (selectedReservation?.tableId) {
-                              form.setValue(
-                                "tableId",
-                                selectedReservation.tableId
-                              );
-                            }
                           }}
-                          value={field.value}
+                          value={field.value || ""}
                         >
                           <FormControl>
                             <SelectTrigger>
@@ -474,55 +496,40 @@ export function OrderDialog({ open, onOpenChange, mode }: OrderDialogProps) {
 
                 {/* Hotel specific fields */}
                 {form.watch("businessType") === BusinessType.HOTEL && (
-                  <>
-                    <FormField
-                      control={form.control}
-                      name="roomId"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Room</FormLabel>
-                          <Select
-                            onValueChange={field.onChange}
-                            value={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select room" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {/* Add your rooms data here */}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="bookingId"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Booking</FormLabel>
-                          <Select
-                            onValueChange={field.onChange}
-                            value={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select booking" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {/* Add your bookings data here */}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </>
+                  <FormField
+                    control={form.control}
+                    name="bookingId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Booking</FormLabel>
+                        <Select
+                          onValueChange={(value) => {
+                            field.onChange(value);
+                            // Update all items with the selected booking
+                            const currentItems = form.getValues("items");
+                            form.setValue(
+                              "items",
+                              currentItems.map((item) => ({
+                                ...item,
+                                bookingId: value,
+                              }))
+                            );
+                          }}
+                          value={field.value || ""}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select booking" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {/* Add your bookings data here */}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 )}
 
                 {/* Salon specific fields */}
@@ -534,8 +541,19 @@ export function OrderDialog({ open, onOpenChange, mode }: OrderDialogProps) {
                       <FormItem>
                         <FormLabel>Appointment</FormLabel>
                         <Select
-                          onValueChange={field.onChange}
-                          value={field.value}
+                          onValueChange={(value) => {
+                            field.onChange(value);
+                            // Update all items with the selected appointment
+                            const currentItems = form.getValues("items");
+                            form.setValue(
+                              "items",
+                              currentItems.map((item) => ({
+                                ...item,
+                                appointmentId: value,
+                              }))
+                            );
+                          }}
+                          value={field.value || ""}
                         >
                           <FormControl>
                             <SelectTrigger>
@@ -563,7 +581,11 @@ export function OrderDialog({ open, onOpenChange, mode }: OrderDialogProps) {
                   onValueChange={setSelectedProduct}
                 >
                   <SelectTrigger className="flex-1">
-                    <SelectValue placeholder="Select menu item" />
+                    <SelectValue placeholder={
+                      form.watch("businessType") === BusinessType.RESTAURANT
+                        ? "Select menu item"
+                        : "Select product"
+                    } />
                   </SelectTrigger>
                   <SelectContent>
                     {menuItems?.map((item) => (
@@ -590,27 +612,57 @@ export function OrderDialog({ open, onOpenChange, mode }: OrderDialogProps) {
               </div>
 
               <div className="space-y-2 max-h-[200px] overflow-y-auto">
-                {form.watch("items").map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-center justify-between p-2 border rounded-md"
-                  >
-                    <div>
-                      <p className="font-medium">{item.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {item.quantity} x ${item.price} = ${item.total}
-                      </p>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleRemoveItem(item.id)}
+                {form.watch("items")?.map((item) => {
+                  const product = menuItems?.find((p) => 
+                    form.watch("businessType") === BusinessType.RESTAURANT
+                      ? p.id === item.menuId
+                      : p.id === item.productId
+                  );
+                  return (
+                    <div
+                      key={item.id}
+                      className="flex items-center justify-between p-2 border rounded-md"
                     >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
+                      <div>
+                        <p className="font-medium">
+                          {product?.name || item.name || "Custom Item"}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {item.quantity} x ${item.price} = ${item.total}
+                        </p>
+                        {item.notes && (
+                          <p className="text-sm text-muted-foreground">
+                            {item.notes}
+                          </p>
+                        )}
+                        {/* Show business-specific fields */}
+                        {item.reservationId && (
+                          <p className="text-sm text-muted-foreground">
+                            Reservation: {item.reservationId}
+                          </p>
+                        )}
+                        {item.bookingId && (
+                          <p className="text-sm text-muted-foreground">
+                            Booking: {item.bookingId}
+                          </p>
+                        )}
+                        {item.appointmentId && (
+                          <p className="text-sm text-muted-foreground">
+                            Appointment: {item.appointmentId}
+                          </p>
+                        )}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleRemoveItem(item.id)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  );
+                })}
               </div>
 
               {/* Show items validation error */}
@@ -720,7 +772,10 @@ export function OrderDialog({ open, onOpenChange, mode }: OrderDialogProps) {
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isPending}>
+              <Button
+                type="submit"
+                disabled={isPending || !form.formState.isValid}
+              >
                 {isPending
                   ? "Saving..."
                   : mode === "create"

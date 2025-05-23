@@ -6,7 +6,7 @@ model Table {
     status       TableStatus   @default(AVAILABLE)
     tenantId     String
     tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-    orders       Order[]
+    // orders       Order[]
     reservations Reservation[]
     createdAt    DateTime      @default(now())
     updatedAt    DateTime      @updatedAt
@@ -32,7 +32,7 @@ model Reservation {
     reservationTime DateTime
     endTime         DateTime?
     specialRequests String?
-    orders          Order[]
+    order          Order[]
 
     @@index([tenantId])
     @@index([tableId])
@@ -51,6 +51,7 @@ model MenuItem {
     isAvailable     Boolean   @default(true)
     categoryId      String?
     category        Category? @relation(fields: [categoryId], references: [id])
+    orderItem       OrderItem[]
     tenantId        String
     tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
     createdAt       DateTime  @default(now())
