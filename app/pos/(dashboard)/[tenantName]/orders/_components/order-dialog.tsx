@@ -97,7 +97,8 @@ const formSchema = z.object({
         return hasRestaurantItems || hasProductItems;
       },
       {
-        message: "Items must be either menu items or products based on business type",
+        message:
+          "Items must be either menu items or products based on business type",
       }
     ),
 });
@@ -167,7 +168,8 @@ interface ExtendedOrder {
 
 export function OrderDialog({ open, onOpenChange, mode }: OrderDialogProps) {
   const { selectedOrder } = useOrders();
-  const { createNewOrder, updateStatus, isPending } = useOrderMutation();
+  const { createNewOrder, updateStatus, isPending } =
+    useOrderMutation();
   const { customers } = useCustomer();
   const { menuItems } = useMenu();
   const { reservations } = useReservation();
@@ -323,9 +325,9 @@ export function OrderDialog({ open, onOpenChange, mode }: OrderDialogProps) {
         businessType,
         items: data.items.map((item) => {
           // Find the product/menu item to ensure we have the name
-          const product = menuItems?.find((p) => 
-            businessType === BusinessType.RESTAURANT 
-              ? p.id === item.menuId 
+          const product = menuItems?.find((p) =>
+            businessType === BusinessType.RESTAURANT
+              ? p.id === item.menuId
               : p.id === item.productId
           );
 
@@ -367,12 +369,10 @@ export function OrderDialog({ open, onOpenChange, mode }: OrderDialogProps) {
 
         if (result.success) {
           onOpenChange(false);
-          toast.success("Success", {
-            description: "Order created successfully",
-          });
+          // Show the payment dialog
         } else {
           toast.error("Error", {
-            description: result.success || "Failed to create order",
+            description: result.error || "Failed to create order",
           });
         }
       } else {
@@ -394,398 +394,405 @@ export function OrderDialog({ open, onOpenChange, mode }: OrderDialogProps) {
     } catch (error) {
       console.error("Error saving order:", error);
       toast.error("Error", {
-        description: error instanceof Error ? error.message : "An unexpected error occurred.",
+        description:
+          error instanceof Error
+            ? error.message
+            : "An unexpected error occurred.",
       });
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>
-            {mode === "create" ? "Create Order" : "Edit Order"}
-          </DialogTitle>
-        </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            {/* Basic Information Section */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium">Basic Information</h3>
-              <div className="grid grid-cols-2 gap-4">
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {mode === "create" ? "Create Order" : "Edit Order"}
+            </DialogTitle>
+          </DialogHeader>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              {/* Basic Information Section */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium">Basic Information</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="customerId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Customer *</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          value={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select customer" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {customers?.map((customer: Customer) => (
+                              <SelectItem key={customer.id} value={customer.id}>
+                                {customer.firstName} {customer.lastName}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Restaurant specific fields */}
+                  {form.watch("businessType") === BusinessType.RESTAURANT && (
+                    <FormField
+                      control={form.control}
+                      name="reservationId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Reservation</FormLabel>
+                          <Select
+                            onValueChange={(value) => {
+                              field.onChange(value);
+                              // Update all items with the selected reservation
+                              const currentItems = form.getValues("items");
+                              form.setValue(
+                                "items",
+                                currentItems.map((item) => ({
+                                  ...item,
+                                  reservationId: value,
+                                }))
+                              );
+                            }}
+                            value={field.value || ""}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select reservation" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {reservations
+                                ?.filter(
+                                  (reservation: Reservation) =>
+                                    reservation.status === "CONFIRMED"
+                                )
+                                .map((reservation: Reservation) => (
+                                  <SelectItem
+                                    key={reservation.id}
+                                    value={reservation.id}
+                                  >
+                                    {reservation.customerName} -{" "}
+                                    {new Date(
+                                      reservation.reservationTime
+                                    ).toLocaleString()}
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+
+                  {/* Hotel specific fields */}
+                  {form.watch("businessType") === BusinessType.HOTEL && (
+                    <FormField
+                      control={form.control}
+                      name="bookingId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Booking</FormLabel>
+                          <Select
+                            onValueChange={(value) => {
+                              field.onChange(value);
+                              // Update all items with the selected booking
+                              const currentItems = form.getValues("items");
+                              form.setValue(
+                                "items",
+                                currentItems.map((item) => ({
+                                  ...item,
+                                  bookingId: value,
+                                }))
+                              );
+                            }}
+                            value={field.value || ""}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select booking" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {/* Add your bookings data here */}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+
+                  {/* Salon specific fields */}
+                  {form.watch("businessType") === BusinessType.SALON && (
+                    <FormField
+                      control={form.control}
+                      name="appointmentId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Appointment</FormLabel>
+                          <Select
+                            onValueChange={(value) => {
+                              field.onChange(value);
+                              // Update all items with the selected appointment
+                              const currentItems = form.getValues("items");
+                              form.setValue(
+                                "items",
+                                currentItems.map((item) => ({
+                                  ...item,
+                                  appointmentId: value,
+                                }))
+                              );
+                            }}
+                            value={field.value || ""}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select appointment" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {/* Add your appointments data here */}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+                </div>
+              </div>
+
+              {/* Order Items Section */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium">Order Items *</h3>
+                <div className="flex gap-2">
+                  <Select
+                    value={selectedProduct}
+                    onValueChange={setSelectedProduct}
+                  >
+                    <SelectTrigger className="flex-1">
+                      <SelectValue
+                        placeholder={
+                          form.watch("businessType") === BusinessType.RESTAURANT
+                            ? "Select menu item"
+                            : "Select product"
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {menuItems?.map((item) => (
+                        <SelectItem key={item.id} value={item.id}>
+                          {item.name} - ${item.price}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={quantity}
+                    onChange={(e) => setQuantity(Number(e.target.value))}
+                    className="w-20"
+                  />
+                  <Button
+                    type="button"
+                    onClick={handleAddItem}
+                    disabled={!selectedProduct}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                  {form.watch("items")?.map((item) => {
+                    const product = menuItems?.find((p) =>
+                      form.watch("businessType") === BusinessType.RESTAURANT
+                        ? p.id === item.menuId
+                        : p.id === item.productId
+                    );
+                    return (
+                      <div
+                        key={item.id}
+                        className="flex items-center justify-between p-2 border rounded-md"
+                      >
+                        <div>
+                          <p className="font-medium">
+                            {product?.name || item.name || "Custom Item"}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {item.quantity} x ${item.price} = ${item.total}
+                          </p>
+                          {item.notes && (
+                            <p className="text-sm text-muted-foreground">
+                              {item.notes}
+                            </p>
+                          )}
+                          {/* Show business-specific fields */}
+                          {item.reservationId && (
+                            <p className="text-sm text-muted-foreground">
+                              Reservation: {item.reservationId}
+                            </p>
+                          )}
+                          {item.bookingId && (
+                            <p className="text-sm text-muted-foreground">
+                              Booking: {item.bookingId}
+                            </p>
+                          )}
+                          {item.appointmentId && (
+                            <p className="text-sm text-muted-foreground">
+                              Appointment: {item.appointmentId}
+                            </p>
+                          )}
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleRemoveItem(item.id)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Show items validation error */}
+                {form.formState.errors.items && (
+                  <p className="text-sm text-red-500">
+                    {form.formState.errors.items.message}
+                  </p>
+                )}
+              </div>
+
+              {/* Payment and Status Section */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium">Payment & Status</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="status"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Order Status</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          value={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select status" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {[
+                              "PENDING",
+                              "PROCESSING",
+                              "COMPLETED",
+                              "CANCELLED",
+                            ].map((status) => (
+                              <SelectItem key={status} value={status}>
+                                {status.replace(/_/g, " ")}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="paymentType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Payment Type</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          value={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select payment type" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {[
+                              "CASH",
+                              "CREDIT_CARD",
+                              "DEBIT_CARD",
+                              "MOBILE_PAYMENT",
+                              "ONLINE_PAYMENT",
+                            ].map((type) => (
+                              <SelectItem key={type} value={type}>
+                                {type.replace(/_/g, " ")}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+
+              {/* Additional Information Section */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium">Additional Information</h3>
                 <FormField
                   control={form.control}
-                  name="customerId"
+                  name="specialInstructions"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Customer *</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        value={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select customer" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {customers?.map((customer: Customer) => (
-                            <SelectItem key={customer.id} value={customer.id}>
-                              {customer.firstName} {customer.lastName}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <FormLabel>Special Instructions</FormLabel>
+                      <FormControl>
+                        <Textarea {...field} rows={3} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-
-                {/* Restaurant specific fields */}
-                {form.watch("businessType") === BusinessType.RESTAURANT && (
-                  <FormField
-                    control={form.control}
-                    name="reservationId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Reservation</FormLabel>
-                        <Select
-                          onValueChange={(value) => {
-                            field.onChange(value);
-                            // Update all items with the selected reservation
-                            const currentItems = form.getValues("items");
-                            form.setValue(
-                              "items",
-                              currentItems.map((item) => ({
-                                ...item,
-                                reservationId: value,
-                              }))
-                            );
-                          }}
-                          value={field.value || ""}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select reservation" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {reservations
-                              ?.filter(
-                                (reservation: Reservation) =>
-                                  reservation.status === "CONFIRMED"
-                              )
-                              .map((reservation: Reservation) => (
-                                <SelectItem
-                                  key={reservation.id}
-                                  value={reservation.id}
-                                >
-                                  {reservation.customerName} -{" "}
-                                  {new Date(
-                                    reservation.reservationTime
-                                  ).toLocaleString()}
-                                </SelectItem>
-                              ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
-
-                {/* Hotel specific fields */}
-                {form.watch("businessType") === BusinessType.HOTEL && (
-                  <FormField
-                    control={form.control}
-                    name="bookingId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Booking</FormLabel>
-                        <Select
-                          onValueChange={(value) => {
-                            field.onChange(value);
-                            // Update all items with the selected booking
-                            const currentItems = form.getValues("items");
-                            form.setValue(
-                              "items",
-                              currentItems.map((item) => ({
-                                ...item,
-                                bookingId: value,
-                              }))
-                            );
-                          }}
-                          value={field.value || ""}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select booking" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {/* Add your bookings data here */}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
-
-                {/* Salon specific fields */}
-                {form.watch("businessType") === BusinessType.SALON && (
-                  <FormField
-                    control={form.control}
-                    name="appointmentId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Appointment</FormLabel>
-                        <Select
-                          onValueChange={(value) => {
-                            field.onChange(value);
-                            // Update all items with the selected appointment
-                            const currentItems = form.getValues("items");
-                            form.setValue(
-                              "items",
-                              currentItems.map((item) => ({
-                                ...item,
-                                appointmentId: value,
-                              }))
-                            );
-                          }}
-                          value={field.value || ""}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select appointment" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {/* Add your appointments data here */}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
               </div>
-            </div>
 
-            {/* Order Items Section */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium">Order Items *</h3>
-              <div className="flex gap-2">
-                <Select
-                  value={selectedProduct}
-                  onValueChange={setSelectedProduct}
-                >
-                  <SelectTrigger className="flex-1">
-                    <SelectValue placeholder={
-                      form.watch("businessType") === BusinessType.RESTAURANT
-                        ? "Select menu item"
-                        : "Select product"
-                    } />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {menuItems?.map((item) => (
-                      <SelectItem key={item.id} value={item.id}>
-                        {item.name} - ${item.price}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Input
-                  type="number"
-                  min="1"
-                  value={quantity}
-                  onChange={(e) => setQuantity(Number(e.target.value))}
-                  className="w-20"
-                />
+              <DialogFooter>
                 <Button
                   type="button"
-                  onClick={handleAddItem}
-                  disabled={!selectedProduct}
+                  variant="outline"
+                  onClick={() => onOpenChange(false)}
                 >
-                  <Plus className="h-4 w-4" />
+                  Cancel
                 </Button>
-              </div>
-
-              <div className="space-y-2 max-h-[200px] overflow-y-auto">
-                {form.watch("items")?.map((item) => {
-                  const product = menuItems?.find((p) => 
-                    form.watch("businessType") === BusinessType.RESTAURANT
-                      ? p.id === item.menuId
-                      : p.id === item.productId
-                  );
-                  return (
-                    <div
-                      key={item.id}
-                      className="flex items-center justify-between p-2 border rounded-md"
-                    >
-                      <div>
-                        <p className="font-medium">
-                          {product?.name || item.name || "Custom Item"}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {item.quantity} x ${item.price} = ${item.total}
-                        </p>
-                        {item.notes && (
-                          <p className="text-sm text-muted-foreground">
-                            {item.notes}
-                          </p>
-                        )}
-                        {/* Show business-specific fields */}
-                        {item.reservationId && (
-                          <p className="text-sm text-muted-foreground">
-                            Reservation: {item.reservationId}
-                          </p>
-                        )}
-                        {item.bookingId && (
-                          <p className="text-sm text-muted-foreground">
-                            Booking: {item.bookingId}
-                          </p>
-                        )}
-                        {item.appointmentId && (
-                          <p className="text-sm text-muted-foreground">
-                            Appointment: {item.appointmentId}
-                          </p>
-                        )}
-                      </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleRemoveItem(item.id)}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Show items validation error */}
-              {form.formState.errors.items && (
-                <p className="text-sm text-red-500">
-                  {form.formState.errors.items.message}
-                </p>
-              )}
-            </div>
-
-            {/* Payment and Status Section */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium">Payment & Status</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="status"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Order Status</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        value={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select status" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {[
-                            "PENDING",
-                            "PROCESSING",
-                            "COMPLETED",
-                            "CANCELLED",
-                          ].map((status) => (
-                            <SelectItem key={status} value={status}>
-                              {status.replace(/_/g, " ")}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="paymentType"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Payment Type</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        value={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select payment type" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {[
-                            "CASH",
-                            "CREDIT_CARD",
-                            "DEBIT_CARD",
-                            "MOBILE_PAYMENT",
-                            "ONLINE_PAYMENT",
-                          ].map((type) => (
-                            <SelectItem key={type} value={type}>
-                              {type.replace(/_/g, " ")}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </div>
-
-            {/* Additional Information Section */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium">Additional Information</h3>
-              <FormField
-                control={form.control}
-                name="specialInstructions"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Special Instructions</FormLabel>
-                    <FormControl>
-                      <Textarea {...field} rows={3} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={isPending || !form.formState.isValid}
-              >
-                {isPending
-                  ? "Saving..."
-                  : mode === "create"
-                    ? "Create"
-                    : "Update"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
+                <Button
+                  type="submit"
+                  disabled={isPending || !form.formState.isValid}
+                >
+                  {isPending
+                    ? "Saving..."
+                    : mode === "create"
+                      ? "Create"
+                      : "Update"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

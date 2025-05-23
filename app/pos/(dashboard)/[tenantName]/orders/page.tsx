@@ -12,6 +12,7 @@ import {
   Send,
   Download,
   Trash2,
+  CreditCard,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
@@ -43,6 +44,7 @@ import { toast } from "sonner";
 import { formatCurrency, formatDate, getInitials } from "@/lib/utils";
 import { CustomPagination } from "@/components/shared/custom-pagination";
 import { OrderStatus, PaymentType } from "@prisma/client";
+import { PaymentSheet } from "@/components/payment/payment-sheet";
 
 interface Order {
   id: string;
@@ -81,6 +83,8 @@ export default function OrdersPage() {
     setIsOrderDetailsOpen,
   } = useOrders();
 
+  const [isPaymentSheetOpen, setIsPaymentSheetOpen] = useState(false);
+
   // Handle sorting
   const handleSort = (key: string) => {
     let direction: "asc" | "desc" = "asc";
@@ -92,6 +96,12 @@ export default function OrdersPage() {
       direction = "desc";
     }
     setSortConfig({ key, direction });
+  };
+
+  // Handle payment completion
+  const handlePaymentComplete = (paymentType: string) => {
+    // Update order status, etc.
+    console.log(`Payment completed with ${paymentType}`);
   };
 
   const { getStatusBadge, getPaymentStatusBadge } = useOrderStatusUtils();
@@ -264,7 +274,9 @@ export default function OrdersPage() {
                               />
                             ) : null}
                             <AvatarFallback>
-                              {getInitials(order.customerProfile?.firstName || "")}
+                              {getInitials(
+                                order.customerProfile?.firstName || ""
+                              )}
                             </AvatarFallback>
                           </Avatar>
                           <div className="text-sm">
@@ -303,6 +315,15 @@ export default function OrdersPage() {
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>Actions</DropdownMenuLabel>
                               <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setIsPaymentSheetOpen(true);
+                                  setSelectedOrder(order);
+                                }}
+                              >
+                                <CreditCard className="h-4 w-4 mr-2" />
+                                Pay
+                              </DropdownMenuItem>
                               <DropdownMenuItem
                                 onClick={() => handleViewOrderDetails(order)}
                               >
@@ -379,6 +400,14 @@ export default function OrdersPage() {
       // formatDate={formatDate}
       // formatCurrency={formatCurrency}
       // getInitials={getInitials}
+      />
+      <PaymentSheet
+        open={isPaymentSheetOpen}
+        onOpenChange={setIsPaymentSheetOpen}
+        amount={selectedOrder?.total || 0}
+        orderId={selectedOrder?.id || ""}
+        onPaymentComplete={handlePaymentComplete}
+        items={selectedOrder?.items || []}
       />
     </div>
   );
