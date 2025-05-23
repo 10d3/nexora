@@ -348,16 +348,16 @@ export async function getOrderStats(
     let dailyRevenue: any = [];
     try {
       dailyRevenue = await prisma.$queryRaw<{ date: Date; revenue: number }[]>`
-        SELECT 
-          DATE(created_at) as date,
+        SELECT
+          DATE("createdAt") as date,
           SUM(total) as revenue
         FROM "Order"
-        WHERE 
-          tenant_id = ${tenantId}
-          AND created_at >= ${sevenDaysAgo}
-          AND created_at <= ${to}
-          AND deleted_at IS NULL
-        GROUP BY DATE(created_at)
+        WHERE
+          "tenantId" = ${tenantId}
+          AND "createdAt" >= ${sevenDaysAgo}
+          AND "createdAt" <= ${to}
+          AND "deletedAt" IS NULL
+        GROUP BY DATE("createdAt")
         ORDER BY date ASC
       `;
     } catch (queryError) {
@@ -503,7 +503,7 @@ export async function getRestaurantStats(
 
     // Calculate total customers
     const totalCustomers = orders.reduce((sum, order) => {
-      return sum + (order.table?.capacity || 1);
+      return sum + (order.reservation?.table?.capacity || 1);
     }, 0);
 
     // Calculate service time metrics
@@ -519,7 +519,7 @@ export async function getRestaurantStats(
     // Calculate yesterday's metrics
     const yesterdayOrderCount = yesterdayOrders.length;
     const yesterdayCustomerCount = yesterdayOrders.reduce((sum, order) => {
-      return sum + (order.table?.capacity || 1);
+      return sum + (order.reservation?.table?.capacity || 1);
     }, 0);
 
     // Calculate trends
@@ -630,8 +630,12 @@ async function getOrdersForToday(tenantId: string) {
           product: true,
         },
       },
-      table: true,
       user: true,
+      reservation: {
+        include: {
+          table: true,
+        },
+      },
     },
   });
 }
@@ -652,7 +656,16 @@ async function getYesterdayOrders(tenantId: string) {
       deletedAt: null,
     },
     include: {
-      table: true,
+      orderItems: {
+        include: {
+          product: true,
+        },
+      },
+      reservation: {
+        include: {
+          table: true,
+        },
+      },
     },
   });
 }
@@ -788,7 +801,7 @@ async function calculateTurnoverData(tenantId: string) {
 
       // Count completed orders per table for this day
       const tableOrders = await prisma.order.groupBy({
-        by: ["tableId"],
+        by: ["orderNumber"],
         where: {
           tenantId,
           createdAt: {
@@ -796,7 +809,7 @@ async function calculateTurnoverData(tenantId: string) {
             lt: nextDay,
           },
           status: OrderStatus.COMPLETED,
-          tableId: { not: null },
+          // tableId: { not: null },
           deletedAt: null,
         },
         _count: {
@@ -862,7 +875,11 @@ export async function getActiveOrders(tenantId: string) {
         deletedAt: null,
       },
       include: {
-        table: true,
+        reservation: {
+          include: {
+            table: true,
+          },
+        },
         orderItems: {
           include: {
             product: true,

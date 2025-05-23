@@ -11,12 +11,12 @@ import {
   updatePaymentType,
   deleteOrder,
 } from "@/lib/actions/order-actions";
-import { OrderStatus, PaymentType } from "@prisma/client";
+import { OrderStatus, PaymentType, BusinessType } from "@prisma/client";
 import { useDashboard } from "@/context/dashboard-provider";
 // import { z } from "zod";
 
 export function useOrderMutation() {
-  const { tenantId } = useDashboard();
+  const { tenantId, businessType } = useDashboard();
   const [isPending, setIsPending] = useState(false);
   const queryClient = useQueryClient();
 
@@ -31,10 +31,15 @@ export function useOrderMutation() {
         ...orderData,
         id: tempId,
         createdAt: new Date(),
+        businessType, // Add business type from context
         // Move business-specific fields to items
         items: orderData.items.map((item: any) => ({
           ...item,
           id: `temp-item-${Date.now()}-${Math.random()}`,
+          // Add business-specific fields based on business type
+          ...(businessType === "RESTAURANT" && { menuId: item.menuId }),
+          ...(businessType === "HOTEL" && { roomId: item.roomId }),
+          ...(businessType === "SALON" && { serviceId: item.serviceId }),
         })),
       };
 
