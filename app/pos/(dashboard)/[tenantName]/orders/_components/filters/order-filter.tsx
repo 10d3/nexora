@@ -13,6 +13,7 @@ import {
 import { RefreshCcw, Search } from "lucide-react";
 import { useOrders } from "@/context/order-provider";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PaymentType, OrderStatus } from "@prisma/client";
 
 export function OrderFilters() {
   const {
@@ -52,16 +53,16 @@ export function OrderFilters() {
       <Tabs
         defaultValue="all"
         value={selectedStatus}
-        onValueChange={setSelectedStatus}
+        onValueChange={(value) => setSelectedStatus(value as OrderStatus | "all")}
       >
         <TabsList className="grid grid-cols-7">
           <TabsTrigger value="all">All</TabsTrigger>
-          <TabsTrigger value="pending">Pending</TabsTrigger>
-          <TabsTrigger value="processing">Processing</TabsTrigger>
-          <TabsTrigger value="shipped">Shipped</TabsTrigger>
-          <TabsTrigger value="delivered">Delivered</TabsTrigger>
-          <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
-          <TabsTrigger value="refunded">Refunded</TabsTrigger>
+          <TabsTrigger value={OrderStatus.PENDING}>Pending</TabsTrigger>
+          <TabsTrigger value={OrderStatus.IN_PROGRESS}>Processing</TabsTrigger>
+          <TabsTrigger value={OrderStatus.READY_FOR_PICKUP}>Ready for Pickup</TabsTrigger>
+          <TabsTrigger value={OrderStatus.DELIVERED}>Delivered</TabsTrigger>
+          <TabsTrigger value={OrderStatus.CANCELLED}>Cancelled</TabsTrigger>
+          <TabsTrigger value={OrderStatus.REFUNDED}>Refunded</TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -81,17 +82,20 @@ export function OrderFilters() {
         {/* Payment Type Filter */}
         <Select
           value={selectedPaymentType}
-          onValueChange={setSelectedPaymentType}
+          onValueChange={(value: PaymentType | "all") => setSelectedPaymentType(value)}
         >
           <SelectTrigger className="w-full md:w-[180px]">
             <SelectValue placeholder="Payment Type" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Payments</SelectItem>
-            <SelectItem value="paid">Paid</SelectItem>
-            <SelectItem value="unpaid">Unpaid</SelectItem>
-            <SelectItem value="partially_paid">Partially Paid</SelectItem>
-            <SelectItem value="refunded">Refunded</SelectItem>
+            <SelectItem value={PaymentType.CASH}>Cash</SelectItem>
+            <SelectItem value={PaymentType.CREDIT_CARD}>Credit Card</SelectItem>
+            <SelectItem value={PaymentType.DEBIT_CARD}>Debit Card</SelectItem>
+            <SelectItem value={PaymentType.MOBILE_PAYMENT}>Mobile Payment</SelectItem>
+            <SelectItem value={PaymentType.ONLINE_PAYMENT}>Online Payment</SelectItem>
+            <SelectItem value={PaymentType.ROOM_CHARGE}>Room Charge</SelectItem>
+            <SelectItem value={PaymentType.CREDIT}>Credit</SelectItem>
           </SelectContent>
         </Select>
 

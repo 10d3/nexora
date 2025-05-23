@@ -151,8 +151,6 @@ export async function getOrders(
       }
     }
 
-    console.log("where", where);
-
     // Count total orders for pagination
     const totalOrders = await prisma.order.count({ where });
 
@@ -164,9 +162,6 @@ export async function getOrders(
         orderItems: {
           include: {
             product: true,
-            // reservation: true,
-            // booking: true,
-            // appointment: true,
             menu: true,
             room: true,
           },
@@ -176,8 +171,6 @@ export async function getOrders(
       take: limit,
       skip: offset,
     });
-
-    console.log("orders", orders);
 
     return {
       orders,

@@ -103,12 +103,12 @@ type OrderContextType = {
   selectedOrder: Order | null;
   isLoading: boolean;
   searchQuery: string;
-  selectedStatus: string;
-  selectedPaymentType: string;
+  selectedStatus: OrderStatus | "all";
+  selectedPaymentType: PaymentType | "all";
   dateRange: string;
   setSearchQuery: (query: string) => void;
-  setSelectedStatus: (status: string) => void;
-  setSelectedPaymentType: (type: string) => void;
+  setSelectedStatus: (status: OrderStatus | "all") => void;
+  setSelectedPaymentType: (type: PaymentType | "all") => void;
   setDateRange: (range: string) => void;
   setSelectedOrder: (order: Order | null) => void;
   createNewOrder: (
@@ -158,8 +158,12 @@ export function OrderProvider({ children }: OrderProviderProps) {
 
   // Filter states
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedStatus, setSelectedStatus] = useState<string>("all");
-  const [selectedPaymentType, setSelectedPaymentType] = useState<string>("all");
+  const [selectedStatus, setSelectedStatus] = useState<OrderStatus | "all">(
+    "all"
+  );
+  const [selectedPaymentType, setSelectedPaymentType] = useState<
+    PaymentType | "all"
+  >("all");
   const [dateRange, setDateRange] = useState<string>("all");
 
   // Pagination states
@@ -230,12 +234,10 @@ export function OrderProvider({ children }: OrderProviderProps) {
 
       // Convert status and payment type if not "all"
       const statusFilter =
-        selectedStatus !== "all" ? (selectedStatus as OrderStatus) : undefined;
+        selectedStatus !== "all" ? selectedStatus : undefined;
 
       const paymentFilter =
-        selectedPaymentType !== "all"
-          ? (selectedPaymentType as PaymentType)
-          : undefined;
+        selectedPaymentType !== "all" ? selectedPaymentType : undefined;
 
       // Calculate offset for pagination
       const offset = (currentPage - 1) * pageSize;
@@ -262,21 +264,21 @@ export function OrderProvider({ children }: OrderProviderProps) {
     orderNumber: order.orderNumber,
     customerProfile: order.customerProfile,
     customer: {
-      id: order.customerProfile?.id || '',
-      name: `${order.customerProfile?.firstName || ''} ${order.customerProfile?.lastName || ''}`.trim(),
-      email: order.customerProfile?.email || '',
-      phone: order.customerProfile?.phone || '',
-      avatar: order.customerProfile?.avatar
+      id: order.customerProfile?.id || "",
+      name: `${order.customerProfile?.firstName || ""} ${order.customerProfile?.lastName || ""}`.trim(),
+      email: order.customerProfile?.email || "",
+      phone: order.customerProfile?.phone || "",
+      avatar: order.customerProfile?.avatar,
     },
     items: order.orderItems.map((item: any) => ({
       id: item.id,
       productId: item.productId,
-      name: item.product?.name || '',
-      sku: item.product?.sku || '',
+      name: item.product?.name || "",
+      sku: item.product?.sku || "",
       quantity: item.quantity,
       price: item.price,
       total: item.total,
-      options: item.options
+      options: item.options,
     })),
     total: order.total,
     tax: order.tax,
@@ -289,7 +291,7 @@ export function OrderProvider({ children }: OrderProviderProps) {
     billingAddress: order.billingAddress,
     notes: order.notes,
     trackingNumber: order.trackingNumber,
-    timeline: order.timeline
+    timeline: order.timeline,
   });
 
   // Update orders state when query data changes
@@ -356,12 +358,12 @@ export function OrderProvider({ children }: OrderProviderProps) {
   // Context value
   const value: OrderContextType = {
     orders,
-    ordersData: ordersData?.error 
+    ordersData: ordersData?.error
       ? { orders: [], totalOrders: 0, error: ordersData.error }
-      : ordersData?.orders 
-        ? { 
-            orders: ordersData.orders.map(transformOrder), 
-            totalOrders: ordersData.totalOrders 
+      : ordersData?.orders
+        ? {
+            orders: ordersData.orders.map(transformOrder),
+            totalOrders: ordersData.totalOrders,
           }
         : null,
     filteredOrders,

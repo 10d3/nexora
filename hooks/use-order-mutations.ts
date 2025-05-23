@@ -13,14 +13,14 @@ import {
 } from "@/lib/actions/order-actions";
 import { OrderStatus, PaymentType, BusinessType } from "@prisma/client";
 import { useDashboard } from "@/context/dashboard-provider";
-// import { z } from "zod";
+import db from "@/lib/services/db.service";
 
 export function useOrderMutation() {
   const { tenantId, businessType } = useDashboard();
   const [isPending, setIsPending] = useState(false);
   const queryClient = useQueryClient();
 
-  // Create order with optimistic update
+  // Create order with optimistic update and offline support
   const createNewOrder = async (orderData: any) => {
     setIsPending(true);
 
@@ -31,36 +31,58 @@ export function useOrderMutation() {
         ...orderData,
         id: tempId,
         createdAt: new Date(),
-        businessType, // Add business type from context
-        // Move business-specific fields to items
-        items: orderData.items.map((item: any) => ({
-          ...item,
+        businessType,
+        tenantId,
+        orderItems: orderData.items.map((item: any) => ({
           id: `temp-item-${Date.now()}-${Math.random()}`,
-          // Add business-specific fields based on business type
-          ...(businessType === "RESTAURANT" && { menuId: item.menuId }),
-          ...(businessType === "HOTEL" && { roomId: item.roomId }),
-          ...(businessType === "SALON" && { serviceId: item.serviceId }),
+          quantity: item.quantity,
+          price: item.price,
+          notes: item.notes || null,
+          productId: item.productId || null,
+          menuId: businessType === "RESTAURANT" ? item.menuId || null : null,
+          roomId: businessType === "HOTEL" ? item.roomId || null : null,
+          orderId: tempId,
+          createdAt: new Date(),
+          updatedAt: new Date(),
         })),
       };
 
-      // Cancel any outgoing refetches
-      await queryClient.cancelQueries({
-        queryKey: ["orders", tenantId],
-      });
+      // Save to IndexedDB for offline support
+      await db.saveOrder(optimisticOrder);
+      for (const item of optimisticOrder.orderItems) {
+        await db.saveOrderItem(item);
+      }
 
-      // Snapshot the previous value
-      const previousOrders = queryClient.getQueryData(["orders", tenantId]);
+      // Queue for later sync if offline
+      if (!navigator.onLine) {
+        await db.saveQueuedAction({
+          id: crypto.randomUUID(),
+          name: "create_order",
+          params: {
+            data: orderData,
+            tenantId,
+          },
+          timestamp: new Date(),
+          retries: 0,
+        });
 
-      // Optimistically add the new order
-      queryClient.setQueryData(["orders", tenantId], (old: any) => {
-        if (!old) return { orders: [optimisticOrder], totalOrders: 1 };
-        return {
-          orders: [optimisticOrder, ...old.orders],
-          totalOrders: old.totalOrders + 1,
-        };
-      });
+        // Update UI optimistically
+        queryClient.setQueryData(["orders", tenantId], (old: any) => {
+          if (!old) return { orders: [optimisticOrder], totalOrders: 1 };
+          return {
+            orders: [optimisticOrder, ...old.orders],
+            totalOrders: old.totalOrders + 1,
+          };
+        });
 
-      // Create the order on the server
+        toast.success("Order created", {
+          description: "The order has been saved locally and will sync when you're back online.",
+        });
+
+        return { success: true, data: optimisticOrder };
+      }
+
+      // If online, proceed with server update
       const result = await createOrder(orderData, tenantId as string);
 
       if (result.order) {
@@ -75,15 +97,53 @@ export function useOrderMutation() {
           };
         });
 
+        // Update IndexedDB with server data
+        const indexedDBOrder = {
+          id: result.order.id,
+          orderNumber: result.order.orderNumber,
+          status: result.order.status,
+          total: result.order.total,
+          tax: result.order.tax,
+          discount: result.order.discount,
+          paymentType: result.order.paymentType,
+          orderType: result.order.orderType,
+          reservationId: result.order.reservationId || undefined,
+          bookingId: result.order.bookingId || undefined,
+          appointmentId: result.order.appointmentId || undefined,
+          userId: result.order.userId,
+          tenantId: result.order.tenantId,
+          customerProfileId: result.order.customerProfileId || undefined,
+          createdAt: result.order.createdAt,
+          updatedAt: result.order.updatedAt,
+          completedAt: result.order.completedAt || undefined,
+          completedBy: result.order.completedBy || undefined,
+          completedReason: result.order.completedReason || undefined,
+          deletedBy: result.order.deletedBy || undefined,
+          deletedAt: result.order.deletedAt || undefined,
+          orderItems: result.order.orderItems.map((item: any) => ({
+            id: item.id,
+            quantity: item.quantity,
+            price: item.price,
+            notes: item.notes || null,
+            productId: item.productId || null,
+            menuId: item.menuId || null,
+            roomId: item.roomId || null,
+            orderId: result.order.id,
+            createdAt: item.createdAt,
+            updatedAt: item.updatedAt,
+          })),
+        };
+        await db.saveOrder(indexedDBOrder);
+        for (const item of indexedDBOrder.orderItems) {
+          await db.saveOrderItem(item);
+        }
+
         toast.success("Success", {
           description: "Order created successfully",
         });
 
         return { success: true, data: result.order };
       } else {
-        // Restore the previous data if there was an error
-        queryClient.setQueryData(["orders", tenantId], previousOrders);
-
         toast.error("Error", {
           description: result.error || "Failed to create order",
         });
@@ -96,7 +156,6 @@ export function useOrderMutation() {
       });
       return { success: false, error: "An unexpected error occurred" };
     } finally {
-      // Always refetch to ensure consistency
       queryClient.invalidateQueries({
         queryKey: ["orders", tenantId],
       });
@@ -104,53 +163,60 @@ export function useOrderMutation() {
     }
   };
 
-  // Update order status with optimistic update
+  // Update order status with offline support
   const updateStatus = async (orderId: string, status: OrderStatus) => {
     setIsPending(true);
 
     try {
-      // Cancel any outgoing refetches
-      await queryClient.cancelQueries({
-        queryKey: ["orders", tenantId],
-      });
+      // Get current order from IndexedDB
+      const currentOrder = await db.getOrder(orderId);
+      if (!currentOrder) {
+        throw new Error("Order not found");
+      }
 
-      // Snapshot the previous value
-      const previousOrders = queryClient.getQueryData(["orders", tenantId]);
+      const updatedOrder = {
+        ...currentOrder,
+        status,
+        ...(status === "COMPLETED" ? { completedAt: new Date() } : {}),
+      };
 
-      // Optimistically update the order status
-      queryClient.setQueryData(["orders", tenantId], (old: any) => {
-        if (!old) return old;
-        return {
-          ...old,
-          orders: old.orders.map((order: any) =>
-            order.id === orderId ? { ...order, status } : order
-          ),
-        };
-      });
+      // Save to IndexedDB
+      await db.saveOrder(updatedOrder);
 
-      // Also update the single order if it's in the cache
-      const previousOrder = queryClient.getQueryData([
-        "order",
-        orderId,
-        tenantId,
-      ]);
+      // Queue for later sync if offline
+      if (!navigator.onLine) {
+        await db.saveQueuedAction({
+          id: crypto.randomUUID(),
+          name: "update_order_status",
+          params: {
+            orderId,
+            status,
+            tenantId,
+          },
+          timestamp: new Date(),
+          retries: 0,
+        });
 
-      if (previousOrder) {
-        queryClient.setQueryData(["order", orderId, tenantId], (old: any) => {
+        // Update UI optimistically
+        queryClient.setQueryData(["orders", tenantId], (old: any) => {
           if (!old) return old;
           return {
             ...old,
-            order: { ...old.order, status },
+            orders: old.orders.map((order: any) =>
+              order.id === orderId ? updatedOrder : order
+            ),
           };
         });
+
+        toast.success("Status updated", {
+          description: "The status has been saved locally and will sync when you're back online.",
+        });
+
+        return { success: true, data: updatedOrder };
       }
 
-      // Update the order status on the server
-      const result = await updateOrderStatus(
-        orderId,
-        status,
-        tenantId as string
-      );
+      // If online, proceed with server update
+      const result = await updateOrderStatus(orderId, status, tenantId as string);
 
       if (result.order) {
         toast.success("Success", {
@@ -158,12 +224,8 @@ export function useOrderMutation() {
         });
         return { success: true, data: result.order };
       } else {
-        // Restore the previous data if there was an error
-        queryClient.setQueryData(["orders", tenantId], previousOrders);
-
-        if (previousOrder) {
-          queryClient.setQueryData(["order", orderId, tenantId], previousOrder);
-        }
+        // Restore previous state in IndexedDB
+        await db.saveOrder(currentOrder);
 
         toast.error("Error", {
           description: result.error || "Failed to update order status",
@@ -177,7 +239,6 @@ export function useOrderMutation() {
       });
       return { success: false, error: "An unexpected error occurred" };
     } finally {
-      // Always refetch to ensure consistency
       queryClient.invalidateQueries({
         queryKey: ["orders", tenantId],
       });
@@ -188,53 +249,59 @@ export function useOrderMutation() {
     }
   };
 
-  // Update payment type with optimistic update
+  // Update payment type with offline support
   const updatePayment = async (orderId: string, paymentType: PaymentType) => {
     setIsPending(true);
 
     try {
-      // Cancel any outgoing refetches
-      await queryClient.cancelQueries({
-        queryKey: ["orders", tenantId],
-      });
+      // Get current order from IndexedDB
+      const currentOrder = await db.getOrder(orderId);
+      if (!currentOrder) {
+        throw new Error("Order not found");
+      }
 
-      // Snapshot the previous value
-      const previousOrders = queryClient.getQueryData(["orders", tenantId]);
+      const updatedOrder = {
+        ...currentOrder,
+        paymentType,
+      };
 
-      // Optimistically update the payment type
-      queryClient.setQueryData(["orders", tenantId], (old: any) => {
-        if (!old) return old;
-        return {
-          ...old,
-          orders: old.orders.map((order: any) =>
-            order.id === orderId ? { ...order, paymentType } : order
-          ),
-        };
-      });
+      // Save to IndexedDB
+      await db.saveOrder(updatedOrder);
 
-      // Also update the single order if it's in the cache
-      const previousOrder = queryClient.getQueryData([
-        "order",
-        orderId,
-        tenantId,
-      ]);
+      // Queue for later sync if offline
+      if (!navigator.onLine) {
+        await db.saveQueuedAction({
+          id: crypto.randomUUID(),
+          name: "update_payment_type",
+          params: {
+            orderId,
+            paymentType,
+            tenantId,
+          },
+          timestamp: new Date(),
+          retries: 0,
+        });
 
-      if (previousOrder) {
-        queryClient.setQueryData(["order", orderId, tenantId], (old: any) => {
+        // Update UI optimistically
+        queryClient.setQueryData(["orders", tenantId], (old: any) => {
           if (!old) return old;
           return {
             ...old,
-            order: { ...old.order, paymentType },
+            orders: old.orders.map((order: any) =>
+              order.id === orderId ? updatedOrder : order
+            ),
           };
         });
+
+        toast.success("Payment updated", {
+          description: "The payment type has been saved locally and will sync when you're back online.",
+        });
+
+        return { success: true, data: updatedOrder };
       }
 
-      // Update the payment type on the server
-      const result = await updatePaymentType(
-        orderId,
-        paymentType,
-        tenantId as string
-      );
+      // If online, proceed with server update
+      const result = await updatePaymentType(orderId, paymentType, tenantId as string);
 
       if (result.order) {
         toast.success("Success", {
@@ -242,12 +309,8 @@ export function useOrderMutation() {
         });
         return { success: true, data: result.order };
       } else {
-        // Restore the previous data if there was an error
-        queryClient.setQueryData(["orders", tenantId], previousOrders);
-
-        if (previousOrder) {
-          queryClient.setQueryData(["order", orderId, tenantId], previousOrder);
-        }
+        // Restore previous state in IndexedDB
+        await db.saveOrder(currentOrder);
 
         toast.error("Error", {
           description: result.error || "Failed to update payment type",
@@ -261,7 +324,6 @@ export function useOrderMutation() {
       });
       return { success: false, error: "An unexpected error occurred" };
     } finally {
-      // Always refetch to ensure consistency
       queryClient.invalidateQueries({
         queryKey: ["orders", tenantId],
       });
@@ -272,29 +334,54 @@ export function useOrderMutation() {
     }
   };
 
-  // Delete order with optimistic update
+  // Delete order with offline support
   const removeOrder = async (orderId: string) => {
     setIsPending(true);
 
     try {
-      // Cancel any outgoing refetches
-      await queryClient.cancelQueries({
-        queryKey: ["orders", tenantId],
-      });
+      // Get current order from IndexedDB
+      const currentOrder = await db.getOrder(orderId);
+      if (!currentOrder) {
+        throw new Error("Order not found");
+      }
 
-      // Snapshot the previous value
-      const previousOrders = queryClient.getQueryData(["orders", tenantId]);
+      // Mark as deleted in IndexedDB
+      const deletedOrder = {
+        ...currentOrder,
+        deletedAt: new Date(),
+      };
+      await db.saveOrder(deletedOrder);
 
-      // Optimistically remove the order
-      queryClient.setQueryData(["orders", tenantId], (old: any) => {
-        if (!old) return old;
-        return {
-          orders: old.orders.filter((order: any) => order.id !== orderId),
-          totalOrders: old.totalOrders - 1,
-        };
-      });
+      // Queue for later sync if offline
+      if (!navigator.onLine) {
+        await db.saveQueuedAction({
+          id: crypto.randomUUID(),
+          name: "delete_order",
+          params: {
+            orderId,
+            tenantId,
+          },
+          timestamp: new Date(),
+          retries: 0,
+        });
 
-      // Delete the order on the server
+        // Update UI optimistically
+        queryClient.setQueryData(["orders", tenantId], (old: any) => {
+          if (!old) return old;
+          return {
+            orders: old.orders.filter((order: any) => order.id !== orderId),
+            totalOrders: old.totalOrders - 1,
+          };
+        });
+
+        toast.success("Order deleted", {
+          description: "The order has been marked for deletion and will be removed when you're back online.",
+        });
+
+        return { success: true };
+      }
+
+      // If online, proceed with server deletion
       const result = await deleteOrder(orderId, tenantId as string);
 
       if (result.success) {
@@ -303,8 +390,8 @@ export function useOrderMutation() {
         });
         return { success: true };
       } else {
-        // Restore the previous data if there was an error
-        queryClient.setQueryData(["orders", tenantId], previousOrders);
+        // Restore previous state in IndexedDB
+        await db.saveOrder(currentOrder);
 
         toast.error("Error", {
           description: result.error || "Failed to delete order",
@@ -318,11 +405,9 @@ export function useOrderMutation() {
       });
       return { success: false, error: "An unexpected error occurred" };
     } finally {
-      // Always refetch to ensure consistency
       queryClient.invalidateQueries({
         queryKey: ["orders", tenantId],
       });
-      // Also invalidate the single order query
       queryClient.invalidateQueries({
         queryKey: ["order"],
       });

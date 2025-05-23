@@ -114,8 +114,9 @@ export interface IOrder {
   discount: number;
   paymentType: string;
   orderType: string;
-  tableId?: string;
-  roomId?: string;
+  reservationId?: string;
+  bookingId?: string;
+  appointmentId?: string;
   userId: string;
   tenantId: string;
   customerProfileId?: string;
@@ -126,15 +127,18 @@ export interface IOrder {
   completedReason?: string;
   deletedBy?: string;
   deletedAt?: Date;
+  orderItems?: IOrderItem[];
 }
 
 export interface IOrderItem {
   id?: string;
   quantity: number;
   price: number;
-  notes?: string;
-  productId: string;
-  orderId: string;
+  notes: string | null;
+  productId: string | null;
+  menuId: string | null;
+  roomId: string | null;
+  orderId: string | null;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -269,6 +273,19 @@ export interface IReservation {
   updatedAt?: Date;
 }
 
+export interface IOrderStats {
+  id: string;
+  tenantId: string;
+  stats: {
+    totalOrders: number;
+    totalRevenue: number;
+    averageOrderValue: number;
+    ordersByStatus: Record<string, number>;
+    ordersByPaymentType: Record<string, number>;
+  };
+  timestamp: Date;
+}
+
 // Define the database class
 class NexoraDatabase extends Dexie {
   users: Dexie.Table<IUser, string>;
@@ -290,6 +307,7 @@ class NexoraDatabase extends Dexie {
   settings: Dexie.Table<ISettings, string>;
   resources: Dexie.Table<IResource, string>;
   reservations: Dexie.Table<IReservation, string>;
+  orderStats: Dexie.Table<IOrderStats, string>;
 
   constructor() {
     super("NexoraDB");
@@ -316,7 +334,8 @@ class NexoraDatabase extends Dexie {
       userSubscriptions: "id, userId, planId, status",
       settings: "id, tenantId",
       resources: "id, tenantId, type, status",
-      reservations: "id, tenantId, tableId, status, reservationTime"
+      reservations: "id, tenantId, tableId, status, reservationTime",
+      orderStats: "id, tenantId, timestamp"
     });
 
     // Define table mappings
@@ -339,6 +358,7 @@ class NexoraDatabase extends Dexie {
     this.settings = this.table("settings");
     this.resources = this.table("resources");
     this.reservations = this.table("reservations");
+    this.orderStats = this.table("orderStats");
   }
 
   // Helper methods for CRUD operations with offline support
@@ -609,6 +629,25 @@ class NexoraDatabase extends Dexie {
     return this.reservations.put(reservation);
   }
 
+  // Order Stats methods
+  async saveOrderStats(stats: IOrderStats): Promise<string> {
+    return await this.orderStats.put(stats);
+  }
+
+  async getOrderStats(tenantId: string, from?: Date, to?: Date): Promise<IOrderStats | undefined> {
+    if (from && to) {
+      // If date range is provided, get stats for that specific range
+      const statsId = `${tenantId}-${from.toISOString()}-${to.toISOString()}`;
+      return await this.orderStats.get(statsId);
+    }
+    // Otherwise get the most recent stats for the tenant
+    return await this.orderStats
+      .where("tenantId")
+      .equals(tenantId)
+      .sortBy("timestamp")
+      .then(stats => stats[stats.length - 1]);
+  }
+
   // Sync methods for offline-first functionality
   async syncFromServer(data: any): Promise<void> {
     // Transaction to ensure data consistency
@@ -634,6 +673,7 @@ class NexoraDatabase extends Dexie {
         this.settings,
         this.resources,
         this.reservations,
+        this.orderStats,
       ],
       async () => {
         // Sync each table with server data
@@ -744,6 +784,12 @@ class NexoraDatabase extends Dexie {
             await this.reservations.put(reservation);
           }
         }
+
+        if (data.orderStats) {
+          for (const stats of data.orderStats) {
+            await this.orderStats.put(stats);
+          }
+        }
       }
     );
   }
@@ -794,6 +840,7 @@ class NexoraDatabase extends Dexie {
         this.settings,
         this.resources,
         this.reservations,
+        this.orderStats,
       ],
       async () => {
         await Promise.all([
@@ -816,6 +863,7 @@ class NexoraDatabase extends Dexie {
           this.settings.clear(),
           this.resources.clear(),
           this.reservations.clear(),
+          this.orderStats.clear(),
         ]);
       }
     );
