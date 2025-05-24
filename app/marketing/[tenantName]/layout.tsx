@@ -11,7 +11,7 @@ import { auth } from "@/lib/auth";
 import { ReactNode } from "react";
 // import { DashboardProvider } from "@/context/dashboard-provider";
 import { getAllTenants } from "@/lib/utils/tenant-utils";
-import { env } from "@/lib/env";
+import { env } from "@/env";
 
 export async function generateMetadata({
   params,

@@ -1,5 +1,5 @@
 import { Resend } from "resend";
-import { env } from "./env";
+import { env } from "../env";
 
 // Initialize Resend with your API key
 const resend = new Resend(env.RESEND_API_KEY);

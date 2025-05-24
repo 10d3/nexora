@@ -111,6 +111,7 @@ type FormValues = z.infer<typeof formSchema>;
 import { getSettings, updateSettings } from "@/lib/actions/settings.actions";
 import { getSite, updateSite } from "@/lib/actions/site.actions";
 import { useDashboard } from "@/context/dashboard-provider";
+import Payment from "./_components/payment";
 
 export default function GeneralSettingsPage() {
   const [activeTab, setActiveTab] = useState("business");
@@ -285,7 +286,7 @@ export default function GeneralSettingsPage() {
           onValueChange={setActiveTab}
           className="w-full"
         >
-                    <div className="flex flex-col sm:flex-row">
+          <div className="flex flex-col sm:flex-row">
             <TabsList className="h-auto flex-col items-stretch p-0 bg-transparent sm:w-60 sm:border-r w-full">
               <TabsTrigger
                 value="business"
@@ -690,8 +691,8 @@ export default function GeneralSettingsPage() {
                     </div>
                     <Separator />
 
-                    <div className="grid gap-4">
-                      <FormField
+                    <div className="grid gap-2">
+                      {/* <FormField
                         control={form.control}
                         name="tableManagement"
                         render={({ field }) => (
@@ -712,9 +713,9 @@ export default function GeneralSettingsPage() {
                             </FormControl>
                           </FormItem>
                         )}
-                      />
+                      /> */}
 
-                      <FormField
+                      {/* <FormField
                         control={form.control}
                         name="roomManagement"
                         render={({ field }) => (
@@ -735,9 +736,9 @@ export default function GeneralSettingsPage() {
                             </FormControl>
                           </FormItem>
                         )}
-                      />
+                      /> */}
 
-                      <FormField
+                      {/* <FormField
                         control={form.control}
                         name="appointmentSystem"
                         render={({ field }) => (
@@ -759,7 +760,8 @@ export default function GeneralSettingsPage() {
                             </FormControl>
                           </FormItem>
                         )}
-                      />
+                      /> */}
+                      <Payment />
                     </div>
                   </div>
                 </TabsContent>

@@ -2,7 +2,7 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider        = "prisma-client-js"
+  provider = "prisma-client-js"
   // previewFeatures = ["prismaSchemaFolder"]
 }
 
@@ -38,23 +38,23 @@ enum BusinessType {
   AUTOMOTIVE
 }
 
-
 // Authentication models
 
 model User {
-  id            String    @id @default(cuid())
-  name          String
-  email         String    @unique
-  emailVerified DateTime?
-  password      String
-  image         String?
-  role          Role      @default(ADMIN)
-  tenantId      String?
-  tenant        Tenant?   @relation("ActiveTenant", fields: [tenantId], references: [id], onDelete: SetNull) // Add relation name
-  tenants       Tenant[]  @relation("UserTenants")
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  deletedAt     DateTime?
+  id              String    @id @default(cuid())
+  name            String
+  email           String    @unique
+  emailVerified   DateTime?
+  password        String
+  image           String?
+  role            Role      @default(ADMIN)
+  tenantId        String?
+  tenant          Tenant?   @relation("ActiveTenant", fields: [tenantId], references: [id], onDelete: SetNull) // Add relation name
+  tenants         Tenant[]  @relation("UserTenants")
+  stripeAccountId String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
 
   // Business relationships
   orders       Order[]

@@ -4,7 +4,7 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
 import { PrismaAdapter } from "@auth/prisma-adapter";
-import { env } from "./env";
+import { env } from "../env";
 
 // Define if we're in a Vercel deployment environment
 // const VERCEL_DEPLOYMENT = process.env.VERCEL_URL || process.env.NEXT_PUBLIC_VERCEL_URL;
