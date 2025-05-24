@@ -16,7 +16,7 @@ import { env } from "@/env";
 export async function generateMetadata({
   params,
 }: {
-  params: { tenantName: string };
+  params: Promise<{ tenantName: string }>;
 }) {
   const paramsName = await params;
   const tenantName = paramsName.tenantName;
@@ -45,7 +45,7 @@ export default async function PosLayout({
   params,
   children,
 }: {
-  params: { tenantName: string };
+  params:Promise<{ tenantName: string }>;
   children: ReactNode;
 }) {
   try {

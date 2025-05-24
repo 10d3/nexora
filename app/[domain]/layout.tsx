@@ -4,7 +4,7 @@ import { ReactNode } from "react";
 export async function generateMetadata({
   params,
 }: {
-  params: { domain: string };
+  params: Promise<{ domain: string }>;
 }) {
   const paramsDomain = await params;
   const domain = decodeURIComponent(paramsDomain.domain);
@@ -29,7 +29,7 @@ export default async function SiteLayout({
   params,
   children,
 }: {
-  params: { domain: string };
+  params: Promise<{ domain: string }>;
   children: ReactNode;
 }) {
   const paramsDomain = await params;

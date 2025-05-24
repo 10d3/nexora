@@ -1,12 +1,11 @@
 import React from "react";
 
-export default async function page({
+export default async function Page({
   params,
 }: {
-  params: { domain: string; slug: string };
+  params: Promise<{ domain: string; slug: string }>;
 }) {
-  const pageParams = await params;
-  const { domain, slug } = pageParams;
+  const { domain, slug } = await params;
   console.log(domain, slug);
   return <div className="container">page</div>;
 }

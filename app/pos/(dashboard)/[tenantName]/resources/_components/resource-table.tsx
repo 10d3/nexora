@@ -233,8 +233,8 @@ export function ResourceTable() {
       return matchesSearch && matchesStatus;
     })
     .sort((a, b) => {
-      let aValue = a[sortField];
-      let bValue = b[sortField];
+      let aValue = a[sortField as keyof typeof a];
+      let bValue = b[sortField as keyof typeof b];
 
       // Handle undefined or null values for sorting
       if (aValue === undefined || aValue === null) aValue = "";
