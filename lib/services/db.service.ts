@@ -278,10 +278,16 @@ export interface IOrderStats {
   tenantId: string;
   stats: {
     totalOrders: number;
+    pendingOrders: number;
+    completedOrders: number;
+    cancelledOrders: number;
     totalRevenue: number;
     averageOrderValue: number;
-    ordersByStatus: Record<string, number>;
-    ordersByPaymentType: Record<string, number>;
+    ordersByStatus: { name: string; value: number }[];
+    recentOrders: { id: string; customer: string; total: number; status: string; date: string }[];
+    dailyRevenue: { date: Date; revenue: number }[];
+    refunds: number;
+    refundAmount: number;
   };
   timestamp: Date;
 }

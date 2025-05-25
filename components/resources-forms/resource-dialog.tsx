@@ -97,8 +97,9 @@ export function ResourceDialog({
   mode: "create" | "edit";
   resource?: any;
 }) {
+  console.log(tenantId)
   const { statusOptions } = useResource();
-  const { createResource, updateResource } = useResourceMutation(businessType, tenantId);
+  const { createResource, updateResource } = useResourceMutation();
   const [schema, setSchema] = useState<z.ZodType<any>>(baseResourceSchema);
 
   // Set the appropriate schema based on business type

@@ -424,7 +424,20 @@ export async function getOrderStats(
     };
   } catch (error) {
     console.error("Error fetching order stats:", error);
-    return { error: "Failed to fetch order statistics" };
+    return {
+      totalOrders: 0,
+      pendingOrders: 0,
+      completedOrders: 0,
+      cancelledOrders: 0,
+      totalRevenue: 0,
+      averageOrderValue: 0,
+      ordersByStatus: [],
+      recentOrders: [],
+      dailyRevenue: [],
+      refunds: 0,
+      refundAmount: 0,
+      error: "Failed to fetch order statistics"
+    };
   }
 }
 

@@ -79,10 +79,25 @@ export function useOrders(limit = 10) {
   });
 }
 
+interface OrderStatsResponse {
+  totalOrders: number;
+  pendingOrders: number;
+  completedOrders: number;
+  cancelledOrders: number;
+  totalRevenue: number;
+  averageOrderValue: number;
+  ordersByStatus: { name: string; value: number }[];
+  recentOrders: { id: string; customer: string; total: number; status: string; date: string }[];
+  dailyRevenue: { date: Date; revenue: number }[];
+  refunds: number;
+  refundAmount: number;
+  error?: string;
+}
+
 export function useOrderStats() {
   const { businessType, dateRange, tenantId } = useDashboard();
 
-  return useQuery({
+  return useQuery<OrderStatsResponse>({
     queryKey: [
       "orderStats",
       businessType,
@@ -115,10 +130,16 @@ export function useOrderStats() {
               tenantId: tenantId as string,
               stats: {
                 totalOrders: result.totalOrders || 0,
+                pendingOrders: result.pendingOrders || 0,
+                completedOrders: result.completedOrders || 0,
+                cancelledOrders: result.cancelledOrders || 0,
                 totalRevenue: result.totalRevenue || 0,
                 averageOrderValue: result.averageOrderValue || 0,
-                ordersByStatus,
-                ordersByPaymentType: {}, // This will be populated based on business type
+                ordersByStatus: Object.entries(ordersByStatus).map(([name, value]) => ({ name, value })),
+                recentOrders: result.recentOrders || [],
+                dailyRevenue: result.dailyRevenue || [],
+                refunds: result.refunds || 0,
+                refundAmount: result.refundAmount || 0,
               },
               timestamp: new Date(),
             };
@@ -135,10 +156,16 @@ export function useOrderStats() {
       const stats = await db.getOrderStats(tenantId as string, dateRange.from, dateRange.to);
       return stats?.stats || {
         totalOrders: 0,
+        pendingOrders: 0,
+        completedOrders: 0,
+        cancelledOrders: 0,
         totalRevenue: 0,
         averageOrderValue: 0,
-        ordersByStatus: {},
-        ordersByPaymentType: {},
+        ordersByStatus: [],
+        recentOrders: [],
+        dailyRevenue: [],
+        refunds: 0,
+        refundAmount: 0
       };
     },
   });

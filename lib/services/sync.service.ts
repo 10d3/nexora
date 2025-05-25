@@ -75,7 +75,7 @@ export class SyncService {
    * @param serverAction The actual server action function
    * @returns The result of the action
    */
-  public async executeAction<T, R>(
+  public async executeAction<T extends { tenantId: string }, R>(
     actionName: string,
     params: T,
     serverAction: ActionFunction<T, R>
@@ -110,7 +110,7 @@ export class SyncService {
    * @param params Parameters for the action
    * @returns The result of the local action
    */
-  private async executeLocalAction<T, R>(
+  private async executeLocalAction<T extends { tenantId: string }, R>(
     actionName: string,
     params: T
   ): Promise<R> {

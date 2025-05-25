@@ -114,6 +114,7 @@ export function ReservationProvider({
             await db.saveResource({
               ...resource,
               tenantId,
+              status: 'capacity' in resource ? resource.status : "AVAILABLE"
             });
           }
         }
