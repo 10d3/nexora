@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { QRCodeSVG } from "qrcode.react"
-import { CreditCard, Wallet, Banknote, ArrowRight, Receipt } from "lucide-react"
+import { CreditCard, Wallet, Banknote, ArrowRight, Receipt, CreditCard as CreditIcon } from "lucide-react"
 import { toast } from "sonner"
 import { formatCurrency } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
@@ -30,11 +30,22 @@ interface PaymentSheetProps {
   orderId: string
   items: OrderItem[]
   onPaymentComplete: (paymentType: string, amount: number, change: number) => void
+  customerCreditLimit?: number
+  customerCreditBalance?: number
 }
 
-type PaymentMethod = "stripe" | "moncash" | "cash"
+type PaymentMethod = "stripe" | "moncash" | "cash" | "credit"
 
-export function PaymentSheet({ open, onOpenChange, amount, orderId, items, onPaymentComplete }: PaymentSheetProps) {
+export function PaymentSheet({ 
+  open, 
+  onOpenChange, 
+  amount, 
+  orderId, 
+  items, 
+  onPaymentComplete,
+  customerCreditLimit = 0,
+  customerCreditBalance = 0 
+}: PaymentSheetProps) {
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>("cash")
   const [paymentLink, setPaymentLink] = useState<string>("")
   const [isLoading, setIsLoading] = useState(false)
@@ -128,6 +139,17 @@ export function PaymentSheet({ open, onOpenChange, amount, orderId, items, onPay
       return
     }
 
+    if (selectedMethod === "credit") {
+      const availableCredit = customerCreditLimit - customerCreditBalance
+      if (amount > availableCredit) {
+        toast.error("Insufficient credit limit")
+        return
+      }
+      onPaymentComplete("credit", amount, 0)
+      onOpenChange(false)
+      return
+    }
+
     setIsLoading(true)
     try {
       const response = await fetch("/api/payments/process", {
@@ -184,6 +206,15 @@ export function PaymentSheet({ open, onOpenChange, amount, orderId, items, onPay
                   </div>
                 </div>
               )}
+
+              {selectedMethod === "credit" && (
+                <div className="mt-3 pt-3 border-t space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Available Credit</span>
+                    <span>{formatCurrency(customerCreditLimit - customerCreditBalance)}</span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -212,7 +243,7 @@ export function PaymentSheet({ open, onOpenChange, amount, orderId, items, onPay
               <RadioGroup
                 value={selectedMethod}
                 onValueChange={(value) => handlePaymentMethodChange(value as PaymentMethod)}
-                className="grid grid-cols-3 gap-2"
+                className="grid grid-cols-4 gap-2"
               >
                 {isOnline && (
                   <>
@@ -249,6 +280,22 @@ export function PaymentSheet({ open, onOpenChange, amount, orderId, items, onPay
                     </div>
                   </>
                 )}
+
+                <div
+                  className={cn(
+                    "border rounded-md transition-all",
+                    selectedMethod === "credit" ? "border-black" : "border-input",
+                  )}
+                >
+                  <Label
+                    htmlFor="credit"
+                    className="flex flex-col items-center justify-center p-3 h-full cursor-pointer text-center"
+                  >
+                    <RadioGroupItem value="credit" id="credit" className="sr-only" />
+                    <CreditIcon className="h-5 w-5 mb-1" />
+                    <span className="text-sm font-medium">Credit</span>
+                  </Label>
+                </div>
 
                 <div
                   className={cn(

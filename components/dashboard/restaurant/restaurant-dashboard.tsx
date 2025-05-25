@@ -128,8 +128,8 @@ export function RestaurantDashboard() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <DataCard
           title="Tables Occupied"
-          value={`${stats?.tableOccupancy || 0}/${stats?.totalTables || 0}`}
-          description={`${Math.round(((stats?.tableOccupancy || 0) / (stats?.totalTables || 1)) * 100)}% occupancy`}
+          value={`${stats?.tablesByStatus?.find(t => t.name === "Occupied")?.value || 0}/${stats?.tablesByStatus?.reduce((sum, t) => sum + t.value, 0) || 0}`}
+          description={`${Math.round(((stats?.tablesByStatus?.find(t => t.name === "Occupied")?.value || 0) / (stats?.tablesByStatus?.reduce((sum, t) => sum + t.value, 0) || 1)) * 100)}% occupancy`}
           icon={<Utensils className="h-4 w-4" />}
         />
         <DataCard
@@ -140,14 +140,14 @@ export function RestaurantDashboard() {
         />
         <DataCard
           title="Avg. Service Time"
-          value={`${Math.round(stats?.averageServiceTime as number)} min`}
-          description="↓ 5% from last week"
+          value={`${Math.round(stats?.avgServiceTime as number)} min`}
+          description={stats?.serviceTimeTrend || "No change from average"}
           icon={<Clock className="h-4 w-4" />}
         />
         <DataCard
           title="Reservations Today"
-          value={stats?.reservationsToday?.toString() || "0"}
-          description="8 pending"
+          value={stats?.totalReservations?.toString() || "0"}
+          description={stats?.reservationsTrend || "No change from yesterday"}
           icon={<Calendar className="h-4 w-4" />}
         />
       </div>

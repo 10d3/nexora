@@ -290,7 +290,7 @@ export default function OrdersPage() {
                       <TableCell>{getStatusBadge(order.status)}</TableCell>
                       <TableCell>
                         {getPaymentStatusBadge(
-                          order.status || order.paymentType
+                          order.paymentStatus || order.paymentType
                         )}
                       </TableCell>
                       <TableCell>{formatDate(order.orderDate)}</TableCell>
@@ -361,7 +361,7 @@ export default function OrdersPage() {
             </Table>
           </ScrollArea>
         </CardContent>
-        <CardFooter className="flex items-center justify-between p-4 border-t">
+        <CardFooter className="flex items-center justify-between px-4 border-t">
           <div className="text-sm text-muted-foreground">
             Showing{" "}
             {filteredOrders.length > 0 ? (currentPage - 1) * pageSize + 1 : 0}{" "}

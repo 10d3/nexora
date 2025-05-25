@@ -37,7 +37,7 @@ model CustomerProfile {
 
     // Business-specific relationships
     creditAccountId String?        @unique
-    creditAccount   CreditAccount? @relation("CreditAccountToCustomerProfile", fields: [creditAccountId], references: [id])
+    creditAccount CreditAccount? @relation("CustomerProfileToCreditAccount")
 
     // Consolidated relationships from all business types
     bookings      Booking[] // Hotel bookings

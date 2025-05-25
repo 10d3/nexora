@@ -14,14 +14,15 @@ model Category {
 }
 
 model Order {
-    id          String      @id @default(cuid())
-    orderNumber String      @unique
-    status      OrderStatus @default(PENDING)
-    total       Float
-    tax         Float       @default(0)
-    discount    Float       @default(0)
-    paymentType PaymentType @default(CASH)
-    orderType   OrderType   @default(STANDARD)
+    id            String        @id @default(cuid())
+    orderNumber   String        @unique
+    status        OrderStatus   @default(PENDING)
+    total         Float
+    tax           Float         @default(0)
+    discount      Float         @default(0)
+    paymentType   PaymentType   @default(CASH)
+    paymentStatus PaymentStatus @default(PENDING)
+    orderType     OrderType     @default(STANDARD)
 
     // Restaurant specific
     reservationId String?
@@ -98,4 +99,14 @@ model OrderItem {
     @@index([orderId])
     @@index([roomId])
     @@index([menuId])
+}
+
+enum PaymentStatus {
+    PENDING
+    PAID
+    PARTIALLY_PAID
+    FAILED
+    REFUNDED
+    CANCELLED
+    OVERDUE
 }

@@ -13,6 +13,8 @@ export async function GET(request: NextRequest) {
       console.error("Missing code or state", code, state);
     }
 
+    console.log(code, state)
+
     console.log("processing stripe connect callback");
 
     try {

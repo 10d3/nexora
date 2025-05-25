@@ -40,7 +40,7 @@ export function CustomPagination({
   className,
 }: DataTablePaginationProps) {
   return (
-    <div className={`flex items-center justify-between px-4 py-3 border-t border-border/40 ${className || ""}`}>
+    <div className={`flex items-center justify-between px-4 py-1 border-border/40 ${className || ""}`}>
       <div className="text-sm text-muted-foreground">
         {selectedItems} of {totalItems} row(s) selected.
       </div>

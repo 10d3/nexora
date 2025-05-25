@@ -10,7 +10,7 @@ import React, {
   ReactNode,
 } from "react";
 import { useOrderMutation } from "@/hooks/use-order-mutations";
-import { OrderStatus, PaymentType } from "@prisma/client";
+import { OrderStatus, PaymentStatus, PaymentType } from "@prisma/client";
 import { toast } from "sonner";
 import { useParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -66,6 +66,7 @@ type Order = {
   orderDate: Date;
   status: OrderStatus;
   paymentType: PaymentType;
+  paymentStatus: PaymentStatus
   shippingAddress?: {
     line1: string;
     line2?: string;
@@ -287,6 +288,7 @@ export function OrderProvider({ children }: OrderProviderProps) {
     orderDate: order.createdAt,
     status: order.status,
     paymentType: order.paymentType,
+    paymentStatus: order.paymentStatus,
     shippingAddress: order.shippingAddress,
     billingAddress: order.billingAddress,
     notes: order.notes,

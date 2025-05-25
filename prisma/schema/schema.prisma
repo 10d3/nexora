@@ -63,7 +63,7 @@ model User {
   invitations  Invitation[]
 
   // Credit relationship
-  creditAccount CreditAccount?
+  // creditAccount CreditAccount?
 
   // Audit tracking
   createdAuditLogs AuditLog[] @relation("CreatedBy")

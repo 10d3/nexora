@@ -1,20 +1,20 @@
 // Credit system models
 model CreditAccount {
     id                String              @id @default(cuid())
-    userId            String              @unique
-    user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+    customerProfileId String              @unique
+    customerProfile   CustomerProfile     @relation("CustomerProfileToCreditAccount", fields: [customerProfileId], references: [id], onDelete: Cascade)
     creditLimit       Float               @default(0)
     currentBalance    Float               @default(0)
     availableCredit   Float               @default(0)
     status            CreditStatus        @default(ACTIVE)
     transactions      CreditTransaction[]
-    customerProfile   CustomerProfile?    @relation("CreditAccountToCustomerProfile")
+    // customerProfile   CustomerProfile?    @relation("CreditAccountToCustomerProfile")
     tenantId          String
     tenant            Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
     createdAt         DateTime            @default(now())
     updatedAt         DateTime            @updatedAt
 
-    @@index([userId])
+    @@index([customerProfileId])
     @@index([tenantId])
     @@index([status])
 }
