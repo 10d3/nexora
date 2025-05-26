@@ -15,14 +15,16 @@ export async function isConnected() {
     },
     select: {
       stripeAccountId: true,
-      id: true
+      id: true,
+      pgpayApiKey: true
       // pgpayAccountId: true
     },
   });
   console.log(data)
   return {
     userId : data?.id,
-    stipeAccountId : data?.stripeAccountId
+    stipeAccountId : data?.stripeAccountId,
+    pgpayConnected : data?.pgpayApiKey
   }
 }
 
